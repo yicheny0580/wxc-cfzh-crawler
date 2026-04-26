@@ -41,6 +41,11 @@ The inspector should show database health, summary counts, authors, searchable
 results, post details, nested replies, and source links. Query endpoints should
 read SQLite in read-only mode.
 
+Forum-published timestamps should display in the browser's local timezone. The
+source forum does not expose an offset in listing or detail timestamps, so the
+inspector interprets those forum timestamps as `America/Los_Angeles` before
+display and date filtering.
+
 On desktop screens, the inspector should let the user resize the split between
 filtered results and the reader with a vertical divider. The selected divider
 position should be saved in browser local storage and restored on reload while
@@ -53,7 +58,8 @@ visually overwhelming the inspector.
 The user can search across posts and replies, filter by author, filter by
 published date, and choose whether posts, replies, or both appear in results.
 Reply results should expose root-post metadata so the user can open the original
-thread context.
+thread context. Published-date filters should match the browser-local dates the
+inspector displays.
 
 ## Reader
 

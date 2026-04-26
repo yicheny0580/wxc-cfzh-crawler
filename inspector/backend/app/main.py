@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app._time import local_date_filter_bounds
 from app.crawl import crawl_manager
 from app.db import (
     build_reply_tree,
@@ -49,21 +50,27 @@ app.add_middleware(
 
 Connection = Annotated[sqlite3.Connection, Depends(get_connection)]
 PublishedDateQuery = Annotated[date | None, Query()]
+PublishedTimezoneQuery = Annotated[str | None, Query(max_length=100)]
 
 
-def validate_published_range(
+def validate_published_filters(
     published_from: date | None,
     published_to: date | None,
+    published_timezone: str | None,
 ) -> tuple[str | None, str | None]:
     if published_from and published_to and published_from > published_to:
         raise HTTPException(
             status_code=422,
             detail="published_from must be on or before published_to.",
         )
-    return (
-        published_from.isoformat() if published_from else None,
-        published_to.isoformat() if published_to else None,
-    )
+    try:
+        return local_date_filter_bounds(
+            published_from=published_from,
+            published_to=published_to,
+            timezone_name=published_timezone,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -111,16 +118,21 @@ async def posts(
     author: str | None = Query(default=None, max_length=200),
     published_from: PublishedDateQuery = None,
     published_to: PublishedDateQuery = None,
+    published_timezone: PublishedTimezoneQuery = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    from_text, to_text = validate_published_range(published_from, published_to)
+    from_text, before_text = validate_published_filters(
+        published_from,
+        published_to,
+        published_timezone,
+    )
     return fetch_posts(
         conn,
         search=search,
         author=author,
         published_from=from_text,
-        published_to=to_text,
+        published_before=before_text,
         limit=limit,
         offset=offset,
     )
@@ -133,18 +145,23 @@ async def results(
     author: str | None = Query(default=None, max_length=200),
     published_from: PublishedDateQuery = None,
     published_to: PublishedDateQuery = None,
+    published_timezone: PublishedTimezoneQuery = None,
     include_posts: bool = Query(default=True),
     include_replies: bool = Query(default=True),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    from_text, to_text = validate_published_range(published_from, published_to)
+    from_text, before_text = validate_published_filters(
+        published_from,
+        published_to,
+        published_timezone,
+    )
     return fetch_results(
         conn,
         search=search,
         author=author,
         published_from=from_text,
-        published_to=to_text,
+        published_before=before_text,
         include_posts=include_posts,
         include_replies=include_replies,
         limit=limit,

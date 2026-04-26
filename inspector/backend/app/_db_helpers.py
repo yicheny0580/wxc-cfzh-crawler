@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import sqlite3
 
+from app._time import forum_timestamp_to_api
+
 POST_COLUMNS = """
     post_id, url, forum, title, author, author_profile_url, published_at, edited_at,
     body_text, body_html, byte_count, read_count, reply_count, crawled_at
@@ -15,7 +17,11 @@ REPLY_COLUMNS = """
 
 
 def row_to_dict(row: sqlite3.Row) -> dict[str, object]:
-    return dict(row)
+    item = dict(row)
+    for key in ("published_at", "edited_at"):
+        if key in item:
+            item[key] = forum_timestamp_to_api(item.get(key))
+    return item
 
 
 def compact_excerpt(value: str | None, limit: int = 220) -> str | None:
@@ -37,18 +43,18 @@ def add_published_date_filters(
     alias: str,
     *,
     published_from: str | None,
-    published_to: str | None,
+    published_before: str | None,
 ) -> None:
-    if published_from or published_to:
+    if published_from or published_before:
         clauses.append(f"{alias}.published_at IS NOT NULL")
 
     if published_from:
-        clauses.append(f"substr({alias}.published_at, 1, 10) >= ?")
+        clauses.append(f"replace({alias}.published_at, ' ', 'T') >= ?")
         params.append(published_from)
 
-    if published_to:
-        clauses.append(f"substr({alias}.published_at, 1, 10) <= ?")
-        params.append(published_to)
+    if published_before:
+        clauses.append(f"replace({alias}.published_at, ' ', 'T') < ?")
+        params.append(published_before)
 
 
 def post_filters(
@@ -56,7 +62,7 @@ def post_filters(
     author: str | None,
     *,
     published_from: str | None = None,
-    published_to: str | None = None,
+    published_before: str | None = None,
 ) -> tuple[str, list[object]]:
     clauses: list[str] = []
     params: list[object] = []
@@ -83,7 +89,7 @@ def post_filters(
         params,
         "p",
         published_from=published_from,
-        published_to=published_to,
+        published_before=published_before,
     )
 
     if not clauses:
@@ -97,7 +103,7 @@ def record_filters(
     search: str | None,
     author: str | None,
     published_from: str | None = None,
-    published_to: str | None = None,
+    published_before: str | None = None,
 ) -> tuple[str, list[object]]:
     clauses: list[str] = []
     params: list[object] = []
@@ -124,7 +130,7 @@ def record_filters(
         params,
         alias,
         published_from=published_from,
-        published_to=published_to,
+        published_before=published_before,
     )
 
     if not clauses:

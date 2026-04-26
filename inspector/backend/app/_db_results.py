@@ -17,7 +17,7 @@ def fetch_posts(
     search: str | None,
     author: str | None,
     published_from: str | None,
-    published_to: str | None,
+    published_before: str | None,
     limit: int,
     offset: int,
 ) -> dict[str, object]:
@@ -25,7 +25,7 @@ def fetch_posts(
         search,
         author,
         published_from=published_from,
-        published_to=published_to,
+        published_before=published_before,
     )
     total = conn.execute(
         f"SELECT COUNT(*) FROM posts p {where_clause}",
@@ -69,7 +69,7 @@ def fetch_results(
     search: str | None,
     author: str | None,
     published_from: str | None,
-    published_to: str | None,
+    published_before: str | None,
     include_posts: bool,
     include_replies: bool,
     limit: int,
@@ -84,7 +84,7 @@ def fetch_results(
             search=search,
             author=author,
             published_from=published_from,
-            published_to=published_to,
+            published_before=published_before,
         )
         selects.append(
             f"""
@@ -128,7 +128,7 @@ def fetch_results(
             search=search,
             author=author,
             published_from=published_from,
-            published_to=published_to,
+            published_before=published_before,
         )
         selects.append(
             f"""

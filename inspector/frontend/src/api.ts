@@ -30,6 +30,34 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return (await response.json()) as T;
 }
 
+function browserTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function addPublishedFilterParams(
+  params: URLSearchParams,
+  query: { publishedFrom?: string; publishedTo?: string }
+) {
+  const publishedFrom = query.publishedFrom?.trim();
+  const publishedTo = query.publishedTo?.trim();
+  if (publishedFrom) {
+    params.set("published_from", publishedFrom);
+  }
+  if (publishedTo) {
+    params.set("published_to", publishedTo);
+  }
+  if (publishedFrom || publishedTo) {
+    const timezone = browserTimezone();
+    if (timezone) {
+      params.set("published_timezone", timezone);
+    }
+  }
+}
+
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health");
 }
@@ -86,12 +114,7 @@ export function getPosts(query: PostQuery): Promise<PostListResponse> {
   if (query.author?.trim()) {
     params.set("author", query.author.trim());
   }
-  if (query.publishedFrom?.trim()) {
-    params.set("published_from", query.publishedFrom.trim());
-  }
-  if (query.publishedTo?.trim()) {
-    params.set("published_to", query.publishedTo.trim());
-  }
+  addPublishedFilterParams(params, query);
   params.set("limit", String(query.limit));
   params.set("offset", String(query.offset));
   return request<PostListResponse>(`/api/posts?${params.toString()}`);
@@ -116,12 +139,7 @@ export function getResults(query: ResultQuery): Promise<ResultListResponse> {
   if (query.author?.trim()) {
     params.set("author", query.author.trim());
   }
-  if (query.publishedFrom?.trim()) {
-    params.set("published_from", query.publishedFrom.trim());
-  }
-  if (query.publishedTo?.trim()) {
-    params.set("published_to", query.publishedTo.trim());
-  }
+  addPublishedFilterParams(params, query);
   params.set("include_posts", String(query.includePosts));
   params.set("include_replies", String(query.includeReplies));
   params.set("limit", String(query.limit));

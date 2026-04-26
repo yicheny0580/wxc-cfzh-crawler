@@ -67,14 +67,23 @@ shows `Stopping` until the process exits.
 - `GET /api/posts/{post_id}`
 
 `GET /api/results` is the primary inspector list endpoint. It supports `search`,
-`author`, `published_from`, `published_to`, `include_posts`, `include_replies`,
-`limit`, and `offset`. Reply results include root post metadata so the frontend can
-open the original post and focus the matching reply in context. `published_from`
-and `published_to` are inclusive `YYYY-MM-DD` filters over `published_at`; undated
-records are excluded while either bound is active.
+`author`, `published_from`, `published_to`, `published_timezone`,
+`include_posts`, `include_replies`, `limit`, and `offset`. Reply results include
+root post metadata so the frontend can open the original post and focus the
+matching reply in context. `published_from` and `published_to` are inclusive
+`YYYY-MM-DD` filters over browser-local published dates; the frontend sends the
+browser IANA timezone in `published_timezone`. If omitted, the backend defaults
+to `America/Los_Angeles`. Undated records are excluded while either bound is
+active.
 
 `GET /api/posts` supports the same `search`, `author`, `published_from`,
-`published_to`, `limit`, and `offset` query parameters for post-only lists.
+`published_to`, `published_timezone`, `limit`, and `offset` query parameters for
+post-only lists.
+
+The source forum publishes timestamps without an offset. Inspector API responses
+interpret post and reply `published_at`/`edited_at` values as
+`America/Los_Angeles` and return offset-aware ISO strings so the browser can
+render them in local time.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 

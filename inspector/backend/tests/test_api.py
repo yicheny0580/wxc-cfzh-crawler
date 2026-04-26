@@ -383,6 +383,7 @@ async def test_summary_counts(client: httpx.AsyncClient) -> None:
     assert payload["replies"] == 3
     assert payload["authors"] == 3
     assert payload["latest_crawl_at"] == "2026-04-25T10:02:30"
+    assert payload["latest_post_published_at"] == "2026-04-25T09:30:00-07:00"
 
 
 @pytest.mark.anyio
@@ -443,7 +444,58 @@ async def test_results_include_posts_and_replies_with_root_metadata(
     assert reply["root_title"] == "Beta rotation"
     assert reply["root_author"] == "Bob"
     assert reply["root_url"] == "https://bbs.wenxuecity.com/cfzh/200.html"
+    assert reply["published_at"] == "2026-04-25T09:35:00-07:00"
     assert reply["excerpt"] == "Another root reply"
+
+
+@pytest.mark.anyio
+async def test_published_date_filter_uses_requested_timezone(
+    client: httpx.AsyncClient,
+    db_path: Path,
+) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE posts SET published_at = '2026-04-25T23:30:00' WHERE post_id = '100'")
+
+    eastern_response = await client.get(
+        "/api/results",
+        params={
+            "include_replies": "false",
+            "published_from": "2026-04-26",
+            "published_to": "2026-04-26",
+            "published_timezone": "America/New_York",
+        },
+    )
+    default_response = await client.get(
+        "/api/results",
+        params={
+            "include_replies": "false",
+            "published_from": "2026-04-26",
+            "published_to": "2026-04-26",
+        },
+    )
+
+    assert eastern_response.status_code == 200
+    assert result_ids(eastern_response.json()["items"]) == [("post", "100")]
+    assert eastern_response.json()["items"][0]["published_at"] == "2026-04-25T23:30:00-07:00"
+
+    assert default_response.status_code == 200
+    assert default_response.json()["items"] == []
+
+
+@pytest.mark.anyio
+async def test_published_date_filter_rejects_invalid_timezone(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.get(
+        "/api/results",
+        params={
+            "published_from": "2026-04-25",
+            "published_timezone": "No/SuchZone",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Unknown timezone: No/SuchZone"
 
 
 @pytest.mark.anyio
@@ -597,9 +649,11 @@ async def test_post_detail_returns_recursive_replies(client: httpx.AsyncClient) 
     assert response.status_code == 200
     payload = response.json()
     assert payload["post_id"] == "100"
+    assert payload["published_at"] == "2026-04-25T09:00:00-07:00"
     assert "<br>" in payload["body_html"]
     assert "/upload/alpha.jpeg" in payload["body_html"]
     assert payload["replies"][0]["reply_id"] == "101"
+    assert payload["replies"][0]["published_at"] == "2026-04-25T09:05:00-07:00"
     assert "/upload/reply.jpeg" in payload["replies"][0]["body_html"]
     assert payload["replies"][0]["replies"][0]["reply_id"] == "102"
 

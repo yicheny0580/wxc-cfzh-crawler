@@ -18,6 +18,11 @@ tests and crawler docs.
   and source URL. Current author links may appear as `a.nickname` elements
   pointing at `passport.wenxuecity.com/members/index.php?act=profile...`;
   older rows may use `a.username` or `passport.wenxuecity.com/profile.php`.
+- Listing and detail timestamps currently appear without an explicit timezone
+  offset. A live check of the CFZH index on April 26, 2026 showed the newest
+  visible forum rows aligned with US Pacific time, so the inspector treats forum
+  timestamps as `America/Los_Angeles` when converting for display and local-date
+  filtering.
 - Root post pages include post metadata, body content, and an "all replies"
   section with reply links.
 - Reply pages may have their own URL and metadata even when the listing row shows
