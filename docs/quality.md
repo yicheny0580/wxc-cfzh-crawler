@@ -18,8 +18,11 @@ and subproject map files exist, source-of-truth docs are present, and relative
 links in those docs point to real files.
 
 The docs checks follow an almost-strict harness style: they enforce the core map
-files, exec-plan lifecycle directories, and link integrity without turning docs
-into a heavy template system.
+files, exec-plan lifecycle directories, exec-plan helper documentation, and link
+integrity without turning docs into a heavy template system.
+
+Root tests also cover the exec-plan helper script so active-plan creation and
+completion reject unsafe slugs, missing active plans, and accidental overwrites.
 
 Update the relevant docs index when adding:
 

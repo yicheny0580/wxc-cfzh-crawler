@@ -11,6 +11,7 @@ Describe the user-visible or repository-visible outcome.
 ## Context
 
 Link the stable docs, source files, and tests that define the current behavior.
+Record known unrelated dirty files from `git status --short`, or state `none`.
 
 ## Plan
 
@@ -30,3 +31,5 @@ Link the stable docs, source files, and tests that define the current behavior.
 ## Progress
 
 - Keep this section current while the plan is active.
+- Record active-plan creation before implementation edits, major implementation
+  milestones, validation results, stable-doc promotion, and completion.

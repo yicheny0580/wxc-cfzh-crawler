@@ -14,9 +14,13 @@ Small one-turn changes do not need a checked-in execution plan.
 ## Lifecycle
 
 - Create a plan in `active/` before substantial multi-step implementation.
+- Use `just exec-plan-new slug=short-name title='Human Title'` to create the
+  active plan from [template.md](template.md).
 - Keep the plan current with progress, decisions, and known follow-up work while
   it is active.
 - Move the plan to `completed/` when the implementation and validation are done.
+- Use `just exec-plan-complete slug=short-name` to move the active plan without
+  overwriting an existing completed plan.
 - Follow [../design-docs/agent-workflow.md](../design-docs/agent-workflow.md)
   for stable-doc promotion before completing a plan.
 
@@ -25,3 +29,8 @@ Small one-turn changes do not need a checked-in execution plan.
 Plans may contain temporary task state and decision history. Stable document
 placement and promotion rules live in
 [../design-docs/agent-workflow.md](../design-docs/agent-workflow.md).
+
+## Slugs
+
+Exec-plan slugs use lowercase letters, numbers, and single hyphens. The slug is
+the filename without `.md` and must be unique across both lifecycle directories.

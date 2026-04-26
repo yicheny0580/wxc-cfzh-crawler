@@ -39,6 +39,18 @@ dependencies with `npm --prefix inspector/frontend ci`.
   command behavior. Then implement the `justfile` change and revise docs if the
   final command shape changes.
 
+## Exec-Plan Helpers
+
+Agents use the root harness for checked-in execution-plan lifecycle steps:
+
+```bash
+just exec-plan-new slug=short-name title='Human Title'
+just exec-plan-complete slug=short-name
+```
+
+The helper creates active plans from `docs/exec-plans/template.md`, validates
+slug shape, and refuses to overwrite existing active or completed plans.
+
 ## Validation
 
 Use the smallest check that covers the change while developing:

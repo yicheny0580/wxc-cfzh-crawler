@@ -235,5 +235,17 @@ lint-just:
 lint-lines:
     uv run python scripts/check_file_lines.py
 
+# Create an active exec-plan; options: slug= title=.
+exec-plan-new *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run python scripts/manage_exec_plan.py new "$@"
+
+# Move an active exec-plan to completed; options: slug=.
+exec-plan-complete *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    uv run python scripts/manage_exec_plan.py complete "$@"
+
 # Run the full local validation harness.
 check: lint-just lint lint-lines test

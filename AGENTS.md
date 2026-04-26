@@ -26,6 +26,7 @@ This file is a table of contents, not the repository manual. Start here, then op
 ## Repo Rules
 
 - Follow [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md) for draft plans, approval, implementation, validation, and commits.
+- For substantial, corrective, handoff-prone, or workflow-policy work, create an active exec-plan with `just exec-plan-new slug=... title='...'` before implementation and keep it current through completion.
 - Keep domain code in `crawler/` or `inspector/`; keep local runtime outputs in ignored `data/`.
 - Prefer `just ...` for root workflows. Start with `just list`; use targeted recipes such as `just test-crawler`, `just ui-build`, and `just check` before dropping to raw low-level commands.
 - Update the relevant docs index when adding a new subsystem, command, or operational assumption.

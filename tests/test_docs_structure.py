@@ -59,6 +59,10 @@ CENTRALIZED_AGENT_PHRASES = [
 ]
 
 AGENT_WORKFLOW_DOC = ROOT / "docs" / "design-docs" / "agent-workflow.md"
+EXEC_PLANS_DOC = ROOT / "docs" / "exec-plans" / "index.md"
+HARNESS_DOC = ROOT / "docs" / "design-docs" / "harness.md"
+OPERATIONS_DOC = ROOT / "docs" / "operations.md"
+JUSTFILE = ROOT / "justfile"
 
 
 def test_doc_map_files_exist() -> None:
@@ -100,7 +104,23 @@ def test_agent_workflow_requires_active_exec_plan_for_substantial_work() -> None
 
     assert "docs/exec-plans/active/" in content
     assert "substantial" in content
+    assert "exec-plan gate decision" in content
+    assert "just exec-plan-new" in content
+    assert "just exec-plan-complete" in content
     assert "before continuing implementation" in content
+
+
+def test_harness_documents_exec_plan_helpers() -> None:
+    contents = [
+        JUSTFILE.read_text(encoding="utf-8"),
+        HARNESS_DOC.read_text(encoding="utf-8"),
+        EXEC_PLANS_DOC.read_text(encoding="utf-8"),
+        OPERATIONS_DOC.read_text(encoding="utf-8"),
+    ]
+
+    for content in contents:
+        assert "exec-plan-new" in content
+        assert "exec-plan-complete" in content
 
 
 def test_doc_map_relative_links_point_to_files() -> None:
