@@ -54,7 +54,9 @@ Listing pages are discovery feeds only. Stored data is organized by post/reply i
 Listing rows expose byte counts and nesting. When a discovered post or reply is
 listed as `0 bytes` and the listing/comment tree shows no nested replies, the
 crawler stores the visible metadata and marks the frontier row done without
-opening the detail page.
+opening the detail page. Listing-only records must preserve visible author
+metadata from both current `a.nickname` member-profile links and older
+`a.username`/`profile.php` links.
 
 Interactive crawler progress is shown as one live-updating `CFZH` terminal line.
 Redirected or non-interactive output suppresses the live line and leaves failures

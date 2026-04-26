@@ -185,6 +185,55 @@ def test_extract_comment_entries_reads_postreply_listing_datetime() -> None:
     assert entries[0].published_at.isoformat() == "2026-04-26T06:57:06"
 
 
+def test_extract_comment_entries_reads_current_nickname_author_links() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="comment">
+              <div id="postlist">
+                <p style="margin:2px 0 2px 0px;">
+                  * <a href="/cfzh/75059.html" class="post">
+                    我去年在这里说存储股领涨, 也问大家为什么领涨.
+                  </a>
+                  <span class="b"> -
+                    <a class="nickname"
+                      href="//passport.wenxuecity.com/members/index.php?act=profile&amp;cid=%E4%BD%8E%E6%89%8B">
+                      低手只会用均线
+                    </a>-
+                  </span>
+                  <a
+                    href="//www.wenxuecity.com/qqh/index.php?act=write&amp;cid=%E4%BD%8E%E6%89%8B">
+                  </a>
+                  <small>(0 bytes) (<span>5 reads</span>) 04/26/2026&nbsp;postreply 10:05:01</small>
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/75051.html",
+    )
+
+    entries = extract_comment_entries(
+        response,
+        root_post_id="75051",
+        base_parent_id="75051",
+        base_depth=0,
+    )
+
+    assert entries[0].post_id == "75059"
+    assert entries[0].author == "低手只会用均线"
+    assert entries[0].author_profile_url == (
+        "https://passport.wenxuecity.com/members/index.php?act=profile&cid=%E4%BD%8E%E6%89%8B"
+    )
+    assert entries[0].byte_count == 0
+    assert entries[0].read_count == 5
+    assert entries[0].published_at is not None
+    assert entries[0].published_at.isoformat() == "2026-04-26T10:05:01"
+
+
 def test_extract_post_record_reads_metadata_and_body() -> None:
     response = response_for("thread.html", "https://bbs.wenxuecity.com/cfzh/100.html")
 

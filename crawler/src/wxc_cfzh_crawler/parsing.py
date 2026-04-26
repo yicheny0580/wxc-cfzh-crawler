@@ -8,6 +8,12 @@ from urllib.parse import urljoin
 
 POST_ID_RE = re.compile(r"/cfzh/(\d+)(?:-print)?\.html(?:[?#].*)?$")
 DATE_PATTERNS = ("%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S")
+LISTING_AUTHOR_SELECTOR = (
+    "a.nickname, "
+    "a.username, "
+    "a[href*='passport.wenxuecity.com/members/index.php'][href*='act=profile'], "
+    "a[href*='passport.wenxuecity.com/profile.php']"
+)
 
 
 @dataclass(frozen=True)
@@ -207,10 +213,7 @@ def listing_metadata(
     row_text: str | None,
     row: Any,
 ) -> dict[str, Any]:
-    author_link = row.css(
-        "a[href*='passport.wenxuecity.com/profile.php'], a.username"
-    ).getall()
-    author_anchor = row.css("a[href*='passport.wenxuecity.com/profile.php'], a.username")
+    author_anchor = row.css(LISTING_AUTHOR_SELECTOR)
     author_profile_url = author_anchor.attrib.get("href") if author_anchor else None
     if author_profile_url:
         author_profile_url = response.urljoin(author_profile_url)
@@ -219,7 +222,7 @@ def listing_metadata(
         "byte_count": parse_int(_first_match(r"\(([\d,]+)\s*bytes\)", row_text)),
         "read_count": parse_int(_first_match(r"\(([\d,]+)\s*reads\)", row_text)),
         "reply_count": parse_reply_count(row_text),
-        "author": normalize_text(author_anchor.xpath("string(.)").get()) if author_link else None,
+        "author": normalize_text(author_anchor.xpath("string(.)").get()),
         "author_profile_url": author_profile_url,
         "published_at": parse_listing_datetime(row_text),
     }

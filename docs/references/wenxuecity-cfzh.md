@@ -15,7 +15,9 @@ tests and crawler docs.
 - The forum index lists root posts and replies together, with reply rows nested
   under root posts when the page exposes parentage.
 - Listing rows can include title, author profile links, byte count, timestamp,
-  and source URL.
+  and source URL. Current author links may appear as `a.nickname` elements
+  pointing at `passport.wenxuecity.com/members/index.php?act=profile...`;
+  older rows may use `a.username` or `passport.wenxuecity.com/profile.php`.
 - Root post pages include post metadata, body content, and an "all replies"
   section with reply links.
 - Reply pages may have their own URL and metadata even when the listing row shows
