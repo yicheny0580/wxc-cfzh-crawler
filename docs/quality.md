@@ -8,6 +8,7 @@
 - Quality tool tests: `just test-root`
 - Frontend build: `just ui-build`
 - Python lint: `just lint`
+- Justfile formatting: `just lint-just`
 - Production file length lint: `just lint-lines`
 
 ## Documentation Checks

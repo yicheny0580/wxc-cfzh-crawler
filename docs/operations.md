@@ -32,6 +32,8 @@ Useful options:
 - `database_url`: SQLite database URL override.
 - `log_level`: Scrapy log level override.
 
+Recipes that accept options use `key=value` tokens after the recipe name.
+
 Example:
 
 ```bash
