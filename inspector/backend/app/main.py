@@ -4,11 +4,12 @@ import sqlite3
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app.crawl import crawl_manager
 from app.db import (
     build_reply_tree,
     connect_readonly,
@@ -23,6 +24,8 @@ from app.db import (
 )
 from app.schemas import (
     AuthorSummary,
+    CrawlStartRequest,
+    CrawlStatusResponse,
     HealthResponse,
     PostDetail,
     PostListResponse,
@@ -39,7 +42,7 @@ app.add_middleware(
         "http://localhost:5173",
     ],
     allow_credentials=False,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
@@ -123,6 +126,29 @@ async def post_detail(post_id: str, conn: Connection) -> dict[str, object]:
         raise HTTPException(status_code=404, detail=f"Post {post_id} was not found.")
     post["replies"] = build_reply_tree(fetch_reply_rows(conn, post_id))
     return post
+
+
+@app.get("/api/crawl/status", response_model=CrawlStatusResponse)
+async def crawl_status() -> CrawlStatusResponse:
+    return crawl_manager.status()
+
+
+@app.post("/api/crawl", response_model=CrawlStatusResponse)
+async def start_crawl(request: CrawlStartRequest) -> CrawlStatusResponse:
+    started, status = await crawl_manager.start(pages=request.pages)
+    if not started:
+        raise HTTPException(status_code=409, detail=status.model_dump(mode="json"))
+    return status
+
+
+@app.post("/api/crawl/stop", response_model=CrawlStatusResponse)
+async def stop_crawl() -> CrawlStatusResponse:
+    return await crawl_manager.stop()
+
+
+@app.websocket("/api/crawl/ws")
+async def crawl_websocket(websocket: WebSocket) -> None:
+    await crawl_manager.subscribe(websocket)
 
 
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"

@@ -1,12 +1,14 @@
-import { RefreshCcw, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
+import { CrawlControls } from "./CrawlControls";
 import { AuthorFilter, TypeFilter } from "./Filters";
 import { PAGE_SIZE, Pagination, ResultList } from "./Results";
 import { ReaderPane, type FocusRequest } from "./Reader";
 import { ErrorBanner, SummaryStrip } from "./Summary";
 import { resultKey } from "./format";
+import { useCrawlStatus } from "./useCrawlStatus";
 import type {
   AuthorSummary,
   HealthResponse,
@@ -96,6 +98,7 @@ function App() {
     readResultTypeFilterPreference
   );
   const [offset, setOffset] = useState(0);
+  const [reloadToken, setReloadToken] = useState(0);
   const [bootLoading, setBootLoading] = useState(true);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -106,6 +109,13 @@ function App() {
   const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
+  const {
+    actionLoading: crawlActionLoading,
+    error: crawlError,
+    start: handleStartCrawl,
+    status: crawlStatus,
+    stop: handleStopCrawl
+  } = useCrawlStatus(reloadAll);
 
   async function refreshOverview() {
     setError(null);
@@ -194,7 +204,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [author, debouncedQuery, hasResultScope, includePosts, includeReplies, offset]);
+  }, [author, debouncedQuery, hasResultScope, includePosts, includeReplies, offset, reloadToken]);
 
   useEffect(() => {
     if (!results) {
@@ -244,7 +254,7 @@ function App() {
     return () => {
       active = false;
     };
-  }, [selectedPostId]);
+  }, [selectedPostId, reloadToken]);
 
   const selectResult = (result: ResultItem) => {
     const replyId = result.record_type === "reply" ? result.reply_id : null;
@@ -275,7 +285,7 @@ function App() {
     });
   };
 
-  const reloadAll = () => {
+  function reloadAll() {
     setBootLoading(true);
     refreshOverview()
       .catch((err: unknown) => {
@@ -283,13 +293,14 @@ function App() {
       })
       .finally(() => setBootLoading(false));
     setOffset(0);
-  };
+    setReloadToken((current) => current + 1);
+  }
 
   return (
     <div className="min-h-screen bg-[#f6f3ed] text-stone-900">
       <header className="shrink-0 border-b border-stone-300 bg-[#fbfaf7]">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-2 px-3 py-3 sm:px-4 lg:px-6">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
               <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
                 <h1 className="text-xl font-semibold text-stone-950">CFZH Inspector</h1>
@@ -299,15 +310,13 @@ function App() {
                 {health?.db_path || summary?.db_path || "SQLite database"}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={reloadAll}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 shadow-sm transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-              title="Refresh"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </button>
+            <CrawlControls
+              status={crawlStatus}
+              error={crawlError}
+              actionLoading={crawlActionLoading}
+              onStart={handleStartCrawl}
+              onStop={handleStopCrawl}
+            />
           </div>
           {error ? <ErrorBanner message={error} /> : null}
         </div>

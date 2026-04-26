@@ -66,6 +66,13 @@ just inspect db=data/crawler.sqlite3 host=127.0.0.1 port=8765
 `just inspect` rebuilds `inspector/frontend`, then serves the UI and API from
 FastAPI.
 
+The inspector Refresh control starts a real crawler run against the same SQLite
+database that the UI is inspecting. It defaults to 5 listing pages and accepts
+1-600 pages. The UI connects to crawl status over WebSocket, so opening or
+reloading the page while a crawl is active shows the current run. Only one crawl
+can run per inspector backend process; a running crawl can be asked to stop, and
+the UI remains in a stopping state until the crawler process exits.
+
 Backend-only startup is available for troubleshooting and skips the frontend build:
 
 ```bash

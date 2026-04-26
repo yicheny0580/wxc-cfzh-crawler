@@ -3,7 +3,8 @@
 The repository is organized around three domains:
 
 - `crawler/`: Scrapy spider, parser, SQLite persistence, export code, and crawler tests.
-- `inspector/`: read-only database inspector with FastAPI backend and React frontend.
+- `inspector/`: SQLite inspector with FastAPI backend, React frontend, and a controlled
+  crawler refresh trigger.
 - `data/`: ignored local runtime data, including SQLite databases and exports.
 
 The root is the workspace control plane. It contains thin docs, the root
@@ -24,6 +25,7 @@ frontend builds by calling the underlying package tools directly.
 ## Boundaries
 
 - Crawler code must not import inspector code.
-- Inspector backend reads the SQLite database in read-only mode and must not mutate crawler data.
+- Inspector query endpoints read the SQLite database in read-only mode. The only inspector
+  write path is the crawl refresh control, which starts the crawler package as a subprocess.
 - Shared local data paths should resolve to root `data/` unless explicitly overridden.
 - User-facing workflows should be added to the root `justfile` before adding README-only command recipes.

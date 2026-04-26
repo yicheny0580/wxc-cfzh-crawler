@@ -1,10 +1,13 @@
 # Inspector Index
 
-The inspector provides a read-only browser UI over the crawler SQLite database.
+The inspector provides a browser UI over the crawler SQLite database. Query
+endpoints are read-only; the Refresh control can start and stop a crawler
+subprocess against the inspected database.
 
 ## Source Map
 
 - [../backend/app/main.py](../backend/app/main.py): FastAPI routes and static frontend serving.
+- [../backend/app/crawl.py](../backend/app/crawl.py): crawl subprocess control and status.
 - [../backend/app/db.py](../backend/app/db.py): read-only SQLite connection and query helpers.
 - [../backend/app/schemas.py](../backend/app/schemas.py): API response schemas.
 - [../frontend/src/App.tsx](../frontend/src/App.tsx): primary React UI.
@@ -31,9 +34,21 @@ just inspect-api
 `just inspect` rebuilds `../frontend`, then serves the UI and API through
 FastAPI. Run `just setup` when frontend dependency manifests change.
 
+## Crawl Refresh
+
+Refresh starts a crawler run from the inspector backend with a default of 5
+listing pages and a maximum of 600. The frontend subscribes to crawl status over
+WebSocket, so new browser sessions reflect an already-running backend crawl.
+Only one crawl runs at a time; Stop requests graceful process termination and
+shows `Stopping` until the process exits.
+
 ## API
 
 - `GET /api/health`
+- `GET /api/crawl/status`
+- `POST /api/crawl`
+- `POST /api/crawl/stop`
+- `WS /api/crawl/ws`
 - `GET /api/summary`
 - `GET /api/authors`
 - `GET /api/results`
@@ -45,7 +60,7 @@ FastAPI. Run `just setup` when frontend dependency manifests change.
 include root post metadata so the frontend can open the original post and focus the
 matching reply in context.
 
-The backend opens SQLite with `mode=ro` and `PRAGMA query_only = ON`.
+Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 
 ## Checks
 

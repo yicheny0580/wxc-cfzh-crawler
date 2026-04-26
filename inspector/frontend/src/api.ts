@@ -1,5 +1,6 @@
 import type {
   AuthorSummary,
+  CrawlStatusResponse,
   HealthResponse,
   PostDetail,
   PostListResponse,
@@ -31,6 +32,33 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getHealth(): Promise<HealthResponse> {
   return request<HealthResponse>("/api/health");
+}
+
+export function getCrawlStatus(): Promise<CrawlStatusResponse> {
+  return request<CrawlStatusResponse>("/api/crawl/status");
+}
+
+export function startCrawl(pages: number): Promise<CrawlStatusResponse> {
+  return request<CrawlStatusResponse>("/api/crawl", {
+    method: "POST",
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ pages })
+  });
+}
+
+export function stopCrawl(): Promise<CrawlStatusResponse> {
+  return request<CrawlStatusResponse>("/api/crawl/stop", {
+    method: "POST",
+    headers: { Accept: "application/json" }
+  });
+}
+
+export function crawlWebSocketUrl(): string {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/api/crawl/ws`;
 }
 
 export function getSummary(): Promise<SummaryResponse> {

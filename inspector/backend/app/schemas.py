@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -11,6 +12,31 @@ class HealthResponse(BaseModel):
     db_exists: bool
     read_only: bool = True
     detail: str | None = None
+
+
+class CrawlStartRequest(BaseModel):
+    pages: int = Field(default=5, ge=1, le=600)
+
+
+class CrawlProgressCounts(BaseModel):
+    saved_posts: int
+    saved_replies: int
+    frontier: dict[str, dict[str, int]]
+
+
+class CrawlStatusResponse(BaseModel):
+    state: Literal["idle", "running", "stopping", "succeeded", "failed", "stopped"]
+    job_id: str | None = None
+    pages: int | None = None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    elapsed_seconds: float | None = None
+    return_code: int | None = None
+    error: str | None = None
+    stdout_tail: str | None = None
+    stderr_tail: str | None = None
+    db_path: str
+    progress: CrawlProgressCounts | None = None
 
 
 class SummaryResponse(BaseModel):

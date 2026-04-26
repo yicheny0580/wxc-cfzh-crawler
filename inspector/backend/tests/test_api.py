@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
 
+from app.crawl import CrawlManager
 from app.main import app
 
 
@@ -15,6 +18,52 @@ def result_ids(items: list[dict[str, object]]) -> list[tuple[object, object]]:
 
 def reply_result_ids(items: list[dict[str, object]]) -> list[tuple[object, object]]:
     return [(item["record_type"], item["reply_id"]) for item in items]
+
+
+class FakeProcess:
+    stdout = None
+    stderr = None
+
+    def __init__(self) -> None:
+        self.returncode: int | None = None
+        self.terminated = False
+        self.killed = False
+        self._done = asyncio.Event()
+
+    async def wait(self) -> int:
+        await self._done.wait()
+        return self.returncode if self.returncode is not None else 0
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def kill(self) -> None:
+        self.killed = True
+        self.finish(-9)
+
+    def finish(self, returncode: int) -> None:
+        self.returncode = returncode
+        self._done.set()
+
+
+class FakeSubprocessFactory:
+    def __init__(self) -> None:
+        self.commands: list[tuple[tuple[object, ...], dict[str, object]]] = []
+        self.processes: list[FakeProcess] = []
+
+    async def __call__(self, *command: object, **kwargs: object) -> FakeProcess:
+        process = FakeProcess()
+        self.commands.append((command, kwargs))
+        self.processes.append(process)
+        return process
+
+
+async def wait_for_crawl_state(manager: CrawlManager, state: str) -> None:
+    for _ in range(50):
+        if manager.status().state == state:
+            return
+        await asyncio.sleep(0.01)
+    raise AssertionError(f"Crawl state did not become {state}.")
 
 
 @pytest.fixture()
@@ -197,6 +246,130 @@ async def client(
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_client:
         yield test_client
+
+
+@pytest.fixture()
+async def crawl_client(
+    monkeypatch: pytest.MonkeyPatch,
+    db_path: Path,
+) -> AsyncIterator[tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory]]:
+    monkeypatch.setenv("WXC_INSPECT_DB", str(db_path))
+    factory = FakeSubprocessFactory()
+    manager = CrawlManager(subprocess_factory=factory, stop_grace_seconds=30.0)
+    monkeypatch.setattr("app.main.crawl_manager", manager)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_client:
+        yield test_client, manager, factory
+
+    for process in factory.processes:
+        if process.returncode is None:
+            process.finish(0)
+    await asyncio.sleep(0.02)
+
+
+@pytest.mark.anyio
+async def test_crawl_start_defaults_to_five_pages_and_current_db(
+    crawl_client: tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory],
+    db_path: Path,
+) -> None:
+    client, manager, factory = crawl_client
+
+    response = await client.post("/api/crawl", json={})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["state"] == "running"
+    assert payload["pages"] == 5
+    assert payload["db_path"] == str(db_path)
+    assert payload["progress"] is None
+
+    command, kwargs = factory.commands[0]
+    assert command[:7] == (
+        "uv",
+        "run",
+        "--package",
+        "wxc-cfzh-crawler",
+        "scrapy",
+        "crawl",
+        "cfzh",
+    )
+    assert "pages=5" in command
+    assert f"database_url=sqlite:///{db_path.as_posix()}" in command
+    assert kwargs["cwd"]
+    assert kwargs["env"]["WXC_PROGRESS"] == "off"
+
+    factory.processes[0].finish(0)
+    await wait_for_crawl_state(manager, "succeeded")
+
+
+@pytest.mark.anyio
+async def test_crawl_rejects_duplicate_start(
+    crawl_client: tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory],
+) -> None:
+    client, manager, factory = crawl_client
+
+    first_response = await client.post("/api/crawl", json={"pages": 12})
+    second_response = await client.post("/api/crawl", json={"pages": 1})
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 409
+    assert second_response.json()["detail"]["state"] == "running"
+    assert len(factory.processes) == 1
+
+    factory.processes[0].finish(0)
+    await wait_for_crawl_state(manager, "succeeded")
+
+
+@pytest.mark.anyio
+async def test_crawl_pages_are_limited_to_600(
+    crawl_client: tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory],
+) -> None:
+    client, _, factory = crawl_client
+
+    response = await client.post("/api/crawl", json={"pages": 601})
+
+    assert response.status_code == 422
+    assert factory.processes == []
+
+
+@pytest.mark.anyio
+async def test_crawl_stop_reports_stopping_until_process_exits(
+    crawl_client: tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory],
+) -> None:
+    client, manager, factory = crawl_client
+
+    await client.post("/api/crawl", json={"pages": 10})
+    stop_response = await client.post("/api/crawl/stop")
+
+    assert stop_response.status_code == 200
+    assert stop_response.json()["state"] == "stopping"
+    assert factory.processes[0].terminated is True
+
+    status_response = await client.get("/api/crawl/status")
+    assert status_response.json()["state"] == "stopping"
+
+    factory.processes[0].finish(-15)
+    await wait_for_crawl_state(manager, "stopped")
+    final_response = await client.get("/api/crawl/status")
+
+    assert final_response.json()["state"] == "stopped"
+    assert final_response.json()["return_code"] == -15
+
+
+def test_crawl_websocket_sends_initial_status(
+    monkeypatch: pytest.MonkeyPatch,
+    db_path: Path,
+) -> None:
+    monkeypatch.setenv("WXC_INSPECT_DB", str(db_path))
+    manager = CrawlManager(subprocess_factory=FakeSubprocessFactory())
+    monkeypatch.setattr("app.main.crawl_manager", manager)
+
+    with TestClient(app) as client:
+        with client.websocket_connect("/api/crawl/ws") as websocket:
+            payload = websocket.receive_json()
+
+    assert payload["state"] == "idle"
+    assert payload["db_path"] == str(db_path)
 
 
 @pytest.mark.anyio

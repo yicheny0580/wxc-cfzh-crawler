@@ -6,6 +6,29 @@ export interface HealthResponse {
   detail: string | null;
 }
 
+export type CrawlState = "idle" | "running" | "stopping" | "succeeded" | "failed" | "stopped";
+
+export interface CrawlProgressCounts {
+  saved_posts: number;
+  saved_replies: number;
+  frontier: Record<string, Record<string, number>>;
+}
+
+export interface CrawlStatusResponse {
+  state: CrawlState;
+  job_id: string | null;
+  pages: number | null;
+  started_at: string | null;
+  finished_at: string | null;
+  elapsed_seconds: number | null;
+  return_code: number | null;
+  error: string | null;
+  stdout_tail: string | null;
+  stderr_tail: string | null;
+  db_path: string;
+  progress: CrawlProgressCounts | null;
+}
+
 export interface SummaryResponse {
   db_path: string;
   posts: number;
