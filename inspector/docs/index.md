@@ -36,8 +36,14 @@ changes, rebuilds `../frontend`, then serves the UI and API through FastAPI.
 - `GET /api/health`
 - `GET /api/summary`
 - `GET /api/authors`
+- `GET /api/results`
 - `GET /api/posts`
 - `GET /api/posts/{post_id}`
+
+`GET /api/results` is the primary inspector list endpoint. It supports `search`,
+`author`, `include_posts`, `include_replies`, `limit`, and `offset`. Reply results
+include root post metadata so the frontend can open the original post and focus the
+matching reply in context.
 
 The backend opens SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 

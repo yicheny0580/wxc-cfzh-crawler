@@ -49,6 +49,38 @@ export interface PostListResponse {
   offset: number;
 }
 
+export type ResultRecordType = "post" | "reply";
+
+export interface ResultItem {
+  record_type: ResultRecordType;
+  post_id: string;
+  reply_id: string | null;
+  root_post_id: string;
+  url: string;
+  forum: string;
+  title: string | null;
+  author: string | null;
+  author_profile_url: string | null;
+  published_at: string | null;
+  edited_at: string | null;
+  byte_count: number | null;
+  read_count: number | null;
+  reply_count: number | null;
+  actual_reply_count: number | null;
+  root_title: string | null;
+  root_author: string | null;
+  root_url: string | null;
+  crawled_at: string;
+  excerpt: string | null;
+}
+
+export interface ResultListResponse {
+  items: ResultItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ReplyDetail {
   reply_id: string;
   root_post_id: string;

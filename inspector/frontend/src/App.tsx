@@ -6,17 +6,18 @@ import {
   Search,
   X
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { getAuthors, getHealth, getPost, getPosts, getSummary } from "./api";
+import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { sanitizeBodyHtml } from "./bodyHtml";
 import type {
   AuthorSummary,
   HealthResponse,
   PostDetail,
   PostListItem,
-  PostListResponse,
   ReplyDetail,
+  ResultItem,
+  ResultListResponse,
   SummaryResponse
 } from "./types";
 
@@ -49,26 +50,55 @@ function displayTitle(post: Pick<PostListItem | PostDetail, "post_id" | "title">
   return post.title?.trim() || `Post ${post.post_id}`;
 }
 
+function displayResultTitle(result: ResultItem): string {
+  if (result.title?.trim()) {
+    return result.title.trim();
+  }
+  if (result.record_type === "reply" && result.reply_id) {
+    return `Reply ${result.reply_id}`;
+  }
+  return `Post ${result.post_id}`;
+}
+
+function resultKey(result: ResultItem): string {
+  return `${result.record_type}:${result.reply_id ?? result.post_id}`;
+}
+
+function countLabel(value: number, singular: string): string {
+  return `${formatNumber(value)} ${value === 1 ? singular : `${singular}s`}`;
+}
+
+function authorLabel(author: AuthorSummary): string {
+  return `${author.name} (${countLabel(author.posts, "post")}, ${countLabel(
+    author.replies,
+    "reply"
+  )})`;
+}
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [authors, setAuthors] = useState<AuthorSummary[]>([]);
-  const [posts, setPosts] = useState<PostListResponse | null>(null);
+  const [results, setResults] = useState<ResultListResponse | null>(null);
+  const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
+  const [targetReplyId, setTargetReplyId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [author, setAuthor] = useState("");
+  const [includePosts, setIncludePosts] = useState(true);
+  const [includeReplies, setIncludeReplies] = useState(true);
   const [offset, setOffset] = useState(0);
   const [bootLoading, setBootLoading] = useState(true);
-  const [postsLoading, setPostsLoading] = useState(false);
+  const [resultsLoading, setResultsLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  const rootAuthors = useMemo(() => authors.filter((item) => item.posts > 0), [authors]);
+  const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
-  const canGoForward = posts ? offset + posts.limit < posts.total : false;
+  const canGoForward = results ? offset + results.limit < results.total : false;
 
   async function refreshOverview() {
     setError(null);
@@ -110,56 +140,71 @@ function App() {
 
   useEffect(() => {
     setOffset(0);
-  }, [author]);
+  }, [author, includePosts, includeReplies]);
 
   useEffect(() => {
     let active = true;
-    setPostsLoading(true);
+    setResultsLoading(true);
     setError(null);
 
-    getPosts({
+    if (!hasResultScope) {
+      setResults({ items: [], total: 0, limit: PAGE_SIZE, offset });
+      setResultsLoading(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    getResults({
       search: debouncedQuery,
       author,
+      includePosts,
+      includeReplies,
       limit: PAGE_SIZE,
       offset
     })
       .then((payload) => {
         if (active) {
-          setPosts(payload);
+          setResults(payload);
         }
       })
       .catch((err: unknown) => {
         if (active) {
-          setError(err instanceof Error ? err.message : "Failed to load posts.");
-          setPosts(null);
+          setError(err instanceof Error ? err.message : "Failed to load results.");
+          setResults(null);
         }
       })
       .finally(() => {
         if (active) {
-          setPostsLoading(false);
+          setResultsLoading(false);
         }
       });
 
     return () => {
       active = false;
     };
-  }, [author, debouncedQuery, offset]);
+  }, [author, debouncedQuery, hasResultScope, includePosts, includeReplies, offset]);
 
   useEffect(() => {
-    if (!posts) {
+    if (!results) {
       return;
     }
 
-    if (posts.items.length === 0) {
+    if (results.items.length === 0) {
+      setSelectedResultKey(null);
       setSelectedPostId(null);
       setSelectedPost(null);
+      setTargetReplyId(null);
       return;
     }
 
-    if (!selectedPostId || !posts.items.some((post) => post.post_id === selectedPostId)) {
-      setSelectedPostId(posts.items[0].post_id);
+    if (!selectedResultKey || !results.items.some((item) => resultKey(item) === selectedResultKey)) {
+      const first = results.items[0];
+      setSelectedResultKey(resultKey(first));
+      setSelectedPostId(first.root_post_id);
+      setTargetReplyId(first.record_type === "reply" ? first.reply_id : null);
     }
-  }, [posts, selectedPostId]);
+  }, [results, selectedResultKey]);
 
   useEffect(() => {
     if (!selectedPostId) {
@@ -191,6 +236,26 @@ function App() {
       active = false;
     };
   }, [selectedPostId]);
+
+  const selectResult = (result: ResultItem) => {
+    setSelectedResultKey(resultKey(result));
+    setSelectedPostId(result.root_post_id);
+    setTargetReplyId(result.record_type === "reply" ? result.reply_id : null);
+  };
+
+  const updateIncludePosts = (checked: boolean) => {
+    if (!checked && !includeReplies) {
+      return;
+    }
+    setIncludePosts(checked);
+  };
+
+  const updateIncludeReplies = (checked: boolean) => {
+    if (!checked && !includePosts) {
+      return;
+    }
+    setIncludeReplies(checked);
+  };
 
   const reloadAll = () => {
     setBootLoading(true);
@@ -236,7 +301,7 @@ function App() {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search posts"
+                placeholder="Search posts and replies"
                 className="h-10 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
               />
               {query ? (
@@ -256,21 +321,41 @@ function App() {
               className="mt-3 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
             >
               <option value="">All authors</option>
-              {rootAuthors.map((item) => (
+              {authors.map((item) => (
                 <option key={item.name} value={item.name}>
-                  {item.name} ({item.posts})
+                  {authorLabel(item)}
                 </option>
               ))}
             </select>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <label className="flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-800">
+                <input
+                  type="checkbox"
+                  checked={includePosts}
+                  onChange={(event) => updateIncludePosts(event.target.checked)}
+                  className="h-4 w-4 accent-emerald-700"
+                />
+                Posts
+              </label>
+              <label className="flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-800">
+                <input
+                  type="checkbox"
+                  checked={includeReplies}
+                  onChange={(event) => updateIncludeReplies(event.target.checked)}
+                  className="h-4 w-4 accent-emerald-700"
+                />
+                Replies
+              </label>
+            </div>
           </div>
-          <PostList
-            posts={posts?.items ?? []}
-            loading={postsLoading}
-            selectedPostId={selectedPostId}
-            onSelect={setSelectedPostId}
+          <ResultList
+            results={results?.items ?? []}
+            loading={resultsLoading}
+            selectedResultKey={selectedResultKey}
+            onSelect={selectResult}
           />
           <Pagination
-            posts={posts}
+            results={results}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
             onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
@@ -281,9 +366,10 @@ function App() {
         <section className="min-h-[calc(100vh-220px)] border border-stone-300 bg-[#fbfaf7]">
           <ReaderPane
             post={selectedPost}
+            targetReplyId={targetReplyId}
             loading={detailLoading}
             error={detailError}
-            empty={!selectedPostId && !postsLoading}
+            empty={!selectedPostId && !resultsLoading}
           />
         </section>
       </main>
@@ -327,54 +413,65 @@ function ErrorBanner({ message }: { message: string }) {
   );
 }
 
-function PostList({
-  posts,
+function ResultList({
+  results,
   loading,
-  selectedPostId,
+  selectedResultKey,
   onSelect
 }: {
-  posts: PostListItem[];
+  results: ResultItem[];
   loading: boolean;
-  selectedPostId: string | null;
-  onSelect: (postId: string) => void;
+  selectedResultKey: string | null;
+  onSelect: (result: ResultItem) => void;
 }) {
   if (loading) {
-    return <StateBlock text="Loading posts..." />;
+    return <StateBlock text="Loading results..." />;
   }
 
-  if (posts.length === 0) {
-    return <StateBlock text="No posts found." />;
+  if (results.length === 0) {
+    return <StateBlock text="No results found." />;
   }
 
   return (
-    <div className="scrollbar-stable max-h-[calc(100vh-384px)] overflow-y-auto">
-      {posts.map((post) => {
-        const selected = post.post_id === selectedPostId;
+    <div className="scrollbar-stable max-h-[calc(100vh-430px)] overflow-y-auto">
+      {results.map((result) => {
+        const selected = resultKey(result) === selectedResultKey;
+        const isReply = result.record_type === "reply";
         return (
           <button
-            key={post.post_id}
+            key={resultKey(result)}
             type="button"
-            onClick={() => onSelect(post.post_id)}
+            onClick={() => onSelect(result)}
             className={`block w-full border-b border-stone-200 px-3 py-3 text-left transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-emerald-600 ${
               selected ? "bg-emerald-50" : "bg-white hover:bg-stone-50"
             }`}
           >
             <div className="flex items-start justify-between gap-3">
               <h2 className="min-w-0 flex-1 text-sm font-semibold leading-5 text-stone-950">
-                {displayTitle(post)}
+                {displayResultTitle(result)}
               </h2>
-              <span className="shrink-0 rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-900">
-                {formatNumber(post.actual_reply_count)}
+              <span
+                className={`shrink-0 rounded-sm px-1.5 py-0.5 text-xs font-medium ${
+                  isReply ? "bg-sky-100 text-sky-900" : "bg-amber-100 text-amber-900"
+                }`}
+              >
+                {isReply ? "Reply" : formatNumber(result.actual_reply_count)}
               </span>
             </div>
             <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-xs text-stone-600">
-              <span>{post.author || "Unknown"}</span>
-              <span>{formatDate(post.published_at)}</span>
-              <span>{formatNumber(post.read_count)} reads</span>
+              <span>{result.author || "Unknown"}</span>
+              <span>{formatDate(result.published_at)}</span>
+              <span>#{isReply ? result.reply_id : result.post_id}</span>
+              {result.read_count !== null ? <span>{formatNumber(result.read_count)} reads</span> : null}
             </div>
-            {post.excerpt ? (
+            {isReply ? (
+              <div className="mt-2 text-xs text-stone-600">
+                Original: {result.root_title?.trim() || `Post ${result.root_post_id}`}
+              </div>
+            ) : null}
+            {result.excerpt ? (
               <p className="mt-2 max-h-10 overflow-hidden text-sm leading-5 text-stone-700">
-                {post.excerpt}
+                {result.excerpt}
               </p>
             ) : null}
           </button>
@@ -385,25 +482,25 @@ function PostList({
 }
 
 function Pagination({
-  posts,
+  results,
   canGoBack,
   canGoForward,
   onPrevious,
   onNext
 }: {
-  posts: PostListResponse | null;
+  results: ResultListResponse | null;
   canGoBack: boolean;
   canGoForward: boolean;
   onPrevious: () => void;
   onNext: () => void;
 }) {
-  const start = posts && posts.total > 0 ? posts.offset + 1 : 0;
-  const end = posts ? Math.min(posts.offset + posts.limit, posts.total) : 0;
+  const start = results && results.total > 0 ? results.offset + 1 : 0;
+  const end = results ? Math.min(results.offset + results.limit, results.total) : 0;
 
   return (
     <div className="flex items-center justify-between border-t border-stone-300 bg-[#fbfaf7] px-3 py-3">
       <div className="text-sm text-stone-600">
-        {formatNumber(start)}-{formatNumber(end)} of {formatNumber(posts?.total ?? 0)}
+        {formatNumber(start)}-{formatNumber(end)} of {formatNumber(results?.total ?? 0)}
       </div>
       <div className="flex gap-2">
         <button
@@ -431,15 +528,47 @@ function Pagination({
 
 function ReaderPane({
   post,
+  targetReplyId,
   loading,
   error,
   empty
 }: {
   post: PostDetail | null;
+  targetReplyId: string | null;
   loading: boolean;
   error: string | null;
   empty: boolean;
 }) {
+  const articleRef = useRef<HTMLElement | null>(null);
+  const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (!article || !post) {
+      return;
+    }
+
+    if (!targetReplyId) {
+      article.scrollTo({ top: 0 });
+      setHighlightedReplyId(null);
+      return;
+    }
+
+    const handle = window.setTimeout(() => {
+      const target = Array.from(article.querySelectorAll<HTMLElement>("[data-reply-id]")).find(
+        (node) => node.dataset.replyId === targetReplyId
+      );
+      target?.scrollIntoView({ block: "center" });
+      setHighlightedReplyId(targetReplyId);
+    }, 0);
+    const clearHighlight = window.setTimeout(() => setHighlightedReplyId(null), 2600);
+
+    return () => {
+      window.clearTimeout(handle);
+      window.clearTimeout(clearHighlight);
+    };
+  }, [post, targetReplyId]);
+
   if (loading) {
     return <StateBlock text="Loading post..." />;
   }
@@ -453,7 +582,10 @@ function ReaderPane({
   }
 
   return (
-    <article className="scrollbar-stable max-h-[calc(100vh-220px)] overflow-y-auto">
+    <article
+      ref={articleRef}
+      className="scrollbar-stable max-h-[calc(100vh-220px)] overflow-y-auto"
+    >
       <div className="border-b border-stone-300 bg-white px-4 py-4 sm:px-6">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
@@ -492,7 +624,11 @@ function ReaderPane({
         {post.replies.length > 0 ? (
           <div className="space-y-3">
             {post.replies.map((reply) => (
-              <ReplyNode key={reply.reply_id} reply={reply} />
+              <ReplyNode
+                key={reply.reply_id}
+                reply={reply}
+                highlightedReplyId={highlightedReplyId}
+              />
             ))}
           </div>
         ) : (
@@ -517,10 +653,22 @@ function MetaLine({ post }: { post: PostDetail | PostListItem }) {
   );
 }
 
-function ReplyNode({ reply }: { reply: ReplyDetail }) {
+function ReplyNode({
+  reply,
+  highlightedReplyId
+}: {
+  reply: ReplyDetail;
+  highlightedReplyId: string | null;
+}) {
+  const highlighted = reply.reply_id === highlightedReplyId;
+
   return (
-    <div className="border-l-2 border-emerald-700 bg-white pl-3">
-      <div className="border border-stone-200 px-3 py-3">
+    <div className="border-l-2 border-emerald-700 bg-white pl-3" data-reply-id={reply.reply_id}>
+      <div
+        className={`border px-3 py-3 transition-colors ${
+          highlighted ? "border-emerald-500 bg-emerald-50" : "border-stone-200"
+        }`}
+      >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
             <span className="font-semibold text-stone-950">{reply.author || "Unknown"}</span>
@@ -553,7 +701,11 @@ function ReplyNode({ reply }: { reply: ReplyDetail }) {
       {reply.replies.length > 0 ? (
         <div className="mt-3 space-y-3 pl-3">
           {reply.replies.map((child) => (
-            <ReplyNode key={child.reply_id} reply={child} />
+            <ReplyNode
+              key={child.reply_id}
+              reply={child}
+              highlightedReplyId={highlightedReplyId}
+            />
           ))}
         </div>
       ) : null}

@@ -9,6 +9,14 @@ import pytest
 from app.main import app
 
 
+def result_ids(items: list[dict[str, object]]) -> list[tuple[object, object]]:
+    return [(item["record_type"], item["reply_id"] or item["post_id"]) for item in items]
+
+
+def reply_result_ids(items: list[dict[str, object]]) -> list[tuple[object, object]]:
+    return [(item["record_type"], item["reply_id"]) for item in items]
+
+
 @pytest.fixture()
 def db_path(tmp_path: Path) -> Path:
     path = tmp_path / "crawler.sqlite3"
@@ -214,6 +222,89 @@ async def test_post_list_supports_search_and_author_filter(client: httpx.AsyncCl
 
     assert author_response.status_code == 200
     assert [item["post_id"] for item in author_response.json()["items"]] == ["200"]
+
+
+@pytest.mark.anyio
+async def test_results_include_posts_and_replies_with_root_metadata(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.get("/api/results")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 5
+    assert result_ids(payload["items"]) == [
+        ("reply", "201"),
+        ("post", "200"),
+        ("reply", "102"),
+        ("reply", "101"),
+        ("post", "100"),
+    ]
+
+    reply = payload["items"][0]
+    assert reply["root_post_id"] == "200"
+    assert reply["post_id"] == "200"
+    assert reply["root_title"] == "Beta rotation"
+    assert reply["root_author"] == "Bob"
+    assert reply["root_url"] == "https://bbs.wenxuecity.com/cfzh/200.html"
+    assert reply["excerpt"] == "Another root reply"
+
+
+@pytest.mark.anyio
+async def test_results_support_author_filter_per_selected_record_type(
+    client: httpx.AsyncClient,
+) -> None:
+    combined = await client.get("/api/results", params={"author": "Alice"})
+    posts_only = await client.get(
+        "/api/results",
+        params={"author": "Alice", "include_replies": "false"},
+    )
+    replies_only = await client.get(
+        "/api/results",
+        params={"author": "Alice", "include_posts": "false"},
+    )
+
+    assert combined.status_code == 200
+    assert result_ids(combined.json()["items"]) == [
+        ("reply", "102"),
+        ("post", "100"),
+    ]
+
+    assert posts_only.status_code == 200
+    assert [(item["record_type"], item["post_id"]) for item in posts_only.json()["items"]] == [
+        ("post", "100")
+    ]
+
+    assert replies_only.status_code == 200
+    assert [(item["record_type"], item["reply_id"]) for item in replies_only.json()["items"]] == [
+        ("reply", "102")
+    ]
+
+
+@pytest.mark.anyio
+async def test_results_support_reply_search_and_pagination(client: httpx.AsyncClient) -> None:
+    search_response = await client.get("/api/results", params={"search": "nested"})
+    page_response = await client.get("/api/results", params={"limit": 2, "offset": 1})
+    empty_scope_response = await client.get(
+        "/api/results",
+        params={"include_posts": "false", "include_replies": "false"},
+    )
+
+    assert search_response.status_code == 200
+    assert reply_result_ids(search_response.json()["items"]) == [("reply", "102")]
+
+    assert page_response.status_code == 200
+    page_payload = page_response.json()
+    assert page_payload["total"] == 5
+    assert page_payload["limit"] == 2
+    assert page_payload["offset"] == 1
+    assert result_ids(page_payload["items"]) == [
+        ("post", "200"),
+        ("reply", "102"),
+    ]
+
+    assert empty_scope_response.status_code == 200
+    assert empty_scope_response.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
 
 
 @pytest.mark.anyio

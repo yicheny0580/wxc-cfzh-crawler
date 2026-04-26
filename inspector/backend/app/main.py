@@ -16,6 +16,7 @@ from app.db import (
     fetch_post,
     fetch_posts,
     fetch_reply_rows,
+    fetch_results,
     fetch_summary,
     get_connection,
     resolve_db_path,
@@ -25,6 +26,7 @@ from app.schemas import (
     HealthResponse,
     PostDetail,
     PostListResponse,
+    ResultListResponse,
     SummaryResponse,
 )
 
@@ -91,6 +93,27 @@ async def posts(
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
     return fetch_posts(conn, search=search, author=author, limit=limit, offset=offset)
+
+
+@app.get("/api/results", response_model=ResultListResponse)
+async def results(
+    conn: Connection,
+    search: str | None = Query(default=None, max_length=200),
+    author: str | None = Query(default=None, max_length=200),
+    include_posts: bool = Query(default=True),
+    include_replies: bool = Query(default=True),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+) -> dict[str, object]:
+    return fetch_results(
+        conn,
+        search=search,
+        author=author,
+        include_posts=include_posts,
+        include_replies=include_replies,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @app.get("/api/posts/{post_id}", response_model=PostDetail)
