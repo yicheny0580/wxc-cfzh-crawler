@@ -11,6 +11,13 @@ The root is the workspace control plane. It contains thin docs, the root
 `pyproject.toml`, the shared `uv.lock`, the canonical `justfile`, and no domain
 implementation code.
 
+Root docs are the source of truth for durable project knowledge:
+
+- [design-docs/project-invariants.md](design-docs/project-invariants.md): repo-wide rules and doc-first workflow.
+- [design-docs/code-unit-design.md](design-docs/code-unit-design.md): implementation unit boundaries.
+- [product-specs/index.md](product-specs/index.md): product intent and workflow expectations.
+- [references/index.md](references/index.md): external references and target-site examples.
+
 ## Workspace
 
 The root `pyproject.toml` defines a `uv` workspace with these members:
@@ -29,3 +36,4 @@ frontend builds by calling the underlying package tools directly.
   write path is the crawl refresh control, which starts the crawler package as a subprocess.
 - Shared local data paths should resolve to root `data/` unless explicitly overridden.
 - User-facing workflows should be added to the root `justfile` before adding README-only command recipes.
+- Changes to boundaries, package ownership, or public interfaces should update the relevant source-of-truth doc before implementation, then revise it after implementation if the final design changes.

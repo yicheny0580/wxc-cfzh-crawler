@@ -4,6 +4,13 @@ The inspector provides a browser UI over the crawler SQLite database. Query
 endpoints are read-only; the Refresh control can start and stop a crawler
 subprocess against the inspected database.
 
+## Root Source Of Truth
+
+- [../../docs/design-docs/project-invariants.md](../../docs/design-docs/project-invariants.md): doc-first workflow, data ownership, and crawler/inspector boundaries.
+- [../../docs/design-docs/code-unit-design.md](../../docs/design-docs/code-unit-design.md): API, frontend, and module unit expectations.
+- [../../docs/product-specs/product-principles.md](../../docs/product-specs/product-principles.md): product goals and UX principles.
+- [../../docs/product-specs/crawler-inspector-workflows.md](../../docs/product-specs/crawler-inspector-workflows.md): supported inspect, search, reader, and refresh workflows.
+
 ## Source Map
 
 - [../backend/app/main.py](../backend/app/main.py): FastAPI routes and static frontend serving.

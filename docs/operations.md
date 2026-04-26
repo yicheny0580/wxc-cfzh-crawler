@@ -18,6 +18,9 @@ just list
 just doctor
 ```
 
+The command harness source of truth is [design-docs/harness.md](design-docs/harness.md).
+Update that doc when setup, command discovery, or validation behavior changes.
+
 ## Crawl
 
 ```bash
@@ -87,3 +90,8 @@ just test-crawler
 just test-backend
 just ui-build
 ```
+
+`just check` is the full local validation harness. See
+[quality.md](quality.md) for quality gates and
+[design-docs/project-invariants.md](design-docs/project-invariants.md) for the
+doc-first update rule.

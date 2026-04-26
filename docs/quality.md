@@ -13,7 +13,9 @@
 
 ## Documentation Checks
 
-Crawler tests include a lightweight docs-structure check. It verifies that the root and subproject map files exist and that relative links in those map files point to real files.
+Root tests include a lightweight docs-structure check. It verifies that the root
+and subproject map files exist, source-of-truth docs are present, and relative
+links in those docs point to real files.
 
 Update the relevant docs index when adding:
 
@@ -21,6 +23,15 @@ Update the relevant docs index when adding:
 - a new subproject or subsystem
 - a new runtime path or environment variable
 - a new durable operating assumption
+- a product workflow or product design assumption
+- a target-site reference or parsing assumption
+
+Meaningful implementation starts by opening the relevant source-of-truth doc. If
+the change affects behavior, commands, APIs, runtime paths, workflows, product
+intent, target-site assumptions, or durable invariants, update docs first,
+implement second, then revise docs if implementation changes the final design.
+Purely mechanical changes may leave docs untouched only after confirming the
+existing docs already describe the intended behavior.
 
 ## Code Expectations
 

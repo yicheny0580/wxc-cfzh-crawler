@@ -2,6 +2,13 @@
 
 The crawler package owns Scrapy crawling, HTML parsing, SQLite persistence, and export shapes.
 
+## Root Source Of Truth
+
+- [../../docs/design-docs/project-invariants.md](../../docs/design-docs/project-invariants.md): doc-first workflow, data ownership, and crawler/inspector boundaries.
+- [../../docs/design-docs/code-unit-design.md](../../docs/design-docs/code-unit-design.md): module and interface expectations.
+- [../../docs/product-specs/crawler-inspector-workflows.md](../../docs/product-specs/crawler-inspector-workflows.md): supported crawl and export workflows.
+- [../../docs/references/wenxuecity-cfzh.md](../../docs/references/wenxuecity-cfzh.md): target-site reference URLs and page-shape notes.
+
 ## Source Map
 
 - [../src/wxc_cfzh_crawler/spiders/cfzh.py](../src/wxc_cfzh_crawler/spiders/cfzh.py): Scrapy spider and persistent frontier scheduling.

@@ -34,6 +34,9 @@ just export-reddit
 - [AGENTS.md](AGENTS.md): short agent entry point and source-of-truth map.
 - [justfile](justfile): canonical root command harness for humans and Codex.
 - [docs/index.md](docs/index.md): root documentation index.
+- [docs/design-docs/index.md](docs/design-docs/index.md): project invariants, harness design, and code unit design.
+- [docs/product-specs/index.md](docs/product-specs/index.md): product principles and supported workflows.
+- [docs/references/index.md](docs/references/index.md): external references and target-site examples.
 - [crawler/](crawler/): Scrapy crawler, SQLite persistence, export logic, and crawler tests.
 - [crawler/docs/index.md](crawler/docs/index.md): crawler behavior, parameters, and data notes.
 - [inspector/](inspector/): FastAPI backend and React frontend for read-only SQLite inspection.
@@ -52,6 +55,12 @@ just check
 after cloning or when `inspector/frontend/package.json` or `package-lock.json`
 changes. `just inspect` rebuilds `inspector/frontend`, then serves the UI and API
 through FastAPI.
+
+This repo is doc-first. Meaningful implementation starts by opening the relevant
+source-of-truth docs under [docs/](docs/index.md). When changing behavior,
+commands, APIs, workflows, product intent, or durable assumptions, update docs
+first, implement second, then revise docs if implementation changes the final
+design.
 
 Low-level Scrapy usage is still available for troubleshooting:
 

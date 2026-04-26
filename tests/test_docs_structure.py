@@ -3,7 +3,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = Path(__file__).resolve().parents[1]
+
 DOCS = [
     ROOT / "AGENTS.md",
     ROOT / "README.md",
@@ -12,9 +13,24 @@ DOCS = [
     ROOT / "docs" / "operations.md",
     ROOT / "docs" / "quality.md",
     ROOT / "docs" / "exec-plans" / "index.md",
+    ROOT / "docs" / "design-docs" / "index.md",
+    ROOT / "docs" / "design-docs" / "project-invariants.md",
+    ROOT / "docs" / "design-docs" / "harness.md",
+    ROOT / "docs" / "design-docs" / "code-unit-design.md",
+    ROOT / "docs" / "product-specs" / "index.md",
+    ROOT / "docs" / "product-specs" / "product-principles.md",
+    ROOT / "docs" / "product-specs" / "crawler-inspector-workflows.md",
+    ROOT / "docs" / "references" / "index.md",
+    ROOT / "docs" / "references" / "wenxuecity-cfzh.md",
     ROOT / "crawler" / "README.md",
     ROOT / "crawler" / "docs" / "index.md",
     ROOT / "inspector" / "docs" / "index.md",
+]
+
+SOURCE_OF_TRUTH_LINKS = [
+    "design-docs/index.md",
+    "product-specs/index.md",
+    "references/index.md",
 ]
 
 RETIRED_COMMAND = "w" + "xc"
@@ -31,6 +47,13 @@ def test_doc_map_files_exist() -> None:
     missing = [path for path in DOCS if not path.is_file()]
 
     assert missing == []
+
+
+def test_root_index_links_source_of_truth_sections() -> None:
+    content = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
+    missing_links = [target for target in SOURCE_OF_TRUTH_LINKS if target not in content]
+
+    assert missing_links == []
 
 
 def test_doc_map_relative_links_point_to_files() -> None:

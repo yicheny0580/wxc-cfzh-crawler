@@ -3,6 +3,8 @@
 Scrapy crawler and SQLite export package for Wenxuecity `财富智汇`.
 
 Start with [docs/index.md](docs/index.md) for crawler behavior, parameters, and local checks.
+For repo-wide invariants, product intent, and target-site references, start from
+[../docs/index.md](../docs/index.md).
 
 From the repository root, prefer:
 
