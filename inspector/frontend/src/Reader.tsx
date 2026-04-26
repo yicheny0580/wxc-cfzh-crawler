@@ -1,7 +1,8 @@
 import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { sanitizeBodyHtml } from "./bodyHtml";
+import { BodyContent, type ReaderImage } from "./BodyContent";
+import { ImageOverlay } from "./ImageOverlay";
 import { StateBlock } from "./StateBlock";
 import { countLabel, displayTitle, formatDate, formatNumber } from "./format";
 import type { PostDetail, PostListItem, ReplyDetail } from "./types";
@@ -57,9 +58,11 @@ export function ReaderPane({
   const handledFocusRequestIdRef = useRef(0);
   const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
   const [collapsedReplyIds, setCollapsedReplyIds] = useState<Set<string>>(() => new Set());
+  const [previewImage, setPreviewImage] = useState<ReaderImage | null>(null);
 
   useEffect(() => {
     setCollapsedReplyIds(new Set());
+    setPreviewImage(null);
   }, [post?.post_id]);
 
   useEffect(() => {
@@ -166,6 +169,7 @@ export function ReaderPane({
           html={post.body_html}
           text={post.body_text}
           className="text-base leading-7 text-stone-900"
+          onImageOpen={setPreviewImage}
         />
       </div>
 
@@ -185,6 +189,7 @@ export function ReaderPane({
                 highlightedReplyId={highlightedReplyId}
                 collapsedReplyIds={collapsedReplyIds}
                 onToggle={toggleReply}
+                onImageOpen={setPreviewImage}
               />
             ))}
           </div>
@@ -194,6 +199,9 @@ export function ReaderPane({
           </div>
         )}
       </div>
+      {previewImage ? (
+        <ImageOverlay image={previewImage} onClose={() => setPreviewImage(null)} />
+      ) : null}
     </article>
   );
 }
@@ -214,12 +222,14 @@ function ReplyNode({
   reply,
   highlightedReplyId,
   collapsedReplyIds,
-  onToggle
+  onToggle,
+  onImageOpen
 }: {
   reply: ReplyDetail;
   highlightedReplyId: string | null;
   collapsedReplyIds: Set<string>;
   onToggle: (replyId: string) => void;
+  onImageOpen: (image: ReaderImage) => void;
 }) {
   const highlighted = reply.reply_id === highlightedReplyId;
   const collapsed = collapsedReplyIds.has(reply.reply_id);
@@ -283,7 +293,7 @@ function ReplyNode({
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
-        {!collapsed ? <ReplyBody reply={reply} /> : null}
+        {!collapsed ? <ReplyBody reply={reply} onImageOpen={onImageOpen} /> : null}
       </div>
       {!collapsed && reply.replies.length > 0 ? (
         <div className="mt-3 space-y-3 pl-3">
@@ -294,6 +304,7 @@ function ReplyNode({
               highlightedReplyId={highlightedReplyId}
               collapsedReplyIds={collapsedReplyIds}
               onToggle={onToggle}
+              onImageOpen={onImageOpen}
             />
           ))}
         </div>
@@ -302,7 +313,13 @@ function ReplyNode({
   );
 }
 
-function ReplyBody({ reply }: { reply: ReplyDetail }) {
+function ReplyBody({
+  reply,
+  onImageOpen
+}: {
+  reply: ReplyDetail;
+  onImageOpen: (image: ReaderImage) => void;
+}) {
   if (reply.title) {
     return (
       <>
@@ -312,6 +329,7 @@ function ReplyBody({ reply }: { reply: ReplyDetail }) {
             html={reply.body_html}
             text={reply.body_text}
             className="mt-2 text-sm leading-6 text-stone-800"
+            onImageOpen={onImageOpen}
           />
         ) : null}
       </>
@@ -324,37 +342,10 @@ function ReplyBody({ reply }: { reply: ReplyDetail }) {
         html={reply.body_html}
         text={reply.body_text}
         className="mt-2 text-sm leading-6 text-stone-800"
+        onImageOpen={onImageOpen}
       />
     );
   }
 
   return <div className="mt-2 text-sm text-stone-500">No body text.</div>;
-}
-
-function BodyContent({
-  html,
-  text,
-  className = ""
-}: {
-  html: string | null;
-  text: string | null;
-  className?: string;
-}) {
-  const sanitizedHtml = useMemo(() => sanitizeBodyHtml(html), [html]);
-  const classes = `reader-body ${className}`.trim();
-
-  if (sanitizedHtml) {
-    return (
-      <div
-        className={`reader-body-html ${classes}`}
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-      />
-    );
-  }
-
-  if (text) {
-    return <div className={`whitespace-pre-wrap ${classes}`}>{text}</div>;
-  }
-
-  return <div className="text-sm text-stone-500">No body text.</div>;
 }

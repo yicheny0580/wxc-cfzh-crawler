@@ -274,8 +274,13 @@ function sanitizeAttributes(element: Element, tagName: string) {
   }
 
   if (tagName === "img" && element.hasAttribute("src")) {
+    const imageLabel = element.getAttribute("alt") || element.getAttribute("title");
     element.setAttribute("loading", "lazy");
     element.setAttribute("decoding", "async");
+    element.setAttribute("data-reader-image", "true");
+    element.setAttribute("role", "button");
+    element.setAttribute("tabindex", "0");
+    element.setAttribute("aria-label", imageLabel ? `Open image: ${imageLabel}` : "Open image");
   }
 }
 
