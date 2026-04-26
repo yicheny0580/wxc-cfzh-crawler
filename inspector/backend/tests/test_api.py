@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import sqlite3
 from collections.abc import AsyncIterator
 from pathlib import Path
 
@@ -398,6 +399,28 @@ async def test_post_list_supports_search_and_author_filter(client: httpx.AsyncCl
 
 
 @pytest.mark.anyio
+async def test_post_list_supports_published_date_filter(client: httpx.AsyncClient) -> None:
+    exact_response = await client.get(
+        "/api/posts",
+        params={"published_from": "2026-04-25", "published_to": "2026-04-25"},
+    )
+    before_response = await client.get("/api/posts", params={"published_to": "2026-04-24"})
+    author_response = await client.get(
+        "/api/posts",
+        params={"author": "Bob", "published_from": "2026-04-25"},
+    )
+
+    assert exact_response.status_code == 200
+    assert [item["post_id"] for item in exact_response.json()["items"]] == ["200", "100"]
+
+    assert before_response.status_code == 200
+    assert before_response.json()["items"] == []
+
+    assert author_response.status_code == 200
+    assert [item["post_id"] for item in author_response.json()["items"]] == ["200"]
+
+
+@pytest.mark.anyio
 async def test_results_include_posts_and_replies_with_root_metadata(
     client: httpx.AsyncClient,
 ) -> None:
@@ -421,6 +444,83 @@ async def test_results_include_posts_and_replies_with_root_metadata(
     assert reply["root_author"] == "Bob"
     assert reply["root_url"] == "https://bbs.wenxuecity.com/cfzh/200.html"
     assert reply["excerpt"] == "Another root reply"
+
+
+@pytest.mark.anyio
+async def test_results_support_published_date_filter(client: httpx.AsyncClient) -> None:
+    exact_response = await client.get(
+        "/api/results",
+        params={"published_from": "2026-04-25", "published_to": "2026-04-25"},
+    )
+    before_response = await client.get("/api/results", params={"published_to": "2026-04-24"})
+    after_response = await client.get("/api/results", params={"published_from": "2026-04-26"})
+
+    assert exact_response.status_code == 200
+    assert result_ids(exact_response.json()["items"]) == [
+        ("reply", "201"),
+        ("post", "200"),
+        ("reply", "102"),
+        ("reply", "101"),
+        ("post", "100"),
+    ]
+
+    assert before_response.status_code == 200
+    assert before_response.json()["items"] == []
+
+    assert after_response.status_code == 200
+    assert after_response.json()["items"] == []
+
+
+@pytest.mark.anyio
+async def test_results_published_date_filter_composes_and_excludes_undated(
+    client: httpx.AsyncClient,
+    db_path: Path,
+) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute("UPDATE posts SET published_at = NULL WHERE post_id = '100'")
+        conn.execute(
+            "UPDATE replies SET published_at = '2026-04-24T09:05:00' WHERE reply_id = '101'"
+        )
+
+    unfiltered_posts = await client.get("/api/results", params={"include_replies": "false"})
+    dated_posts = await client.get(
+        "/api/results",
+        params={
+            "include_replies": "false",
+            "published_from": "2026-04-25",
+            "published_to": "2026-04-25",
+        },
+    )
+    filtered_replies = await client.get(
+        "/api/results",
+        params={
+            "author": "Carol",
+            "include_posts": "false",
+            "published_from": "2026-04-25",
+            "published_to": "2026-04-25",
+        },
+    )
+
+    assert unfiltered_posts.status_code == 200
+    assert result_ids(unfiltered_posts.json()["items"]) == [("post", "100"), ("post", "200")]
+
+    assert dated_posts.status_code == 200
+    assert result_ids(dated_posts.json()["items"]) == [("post", "200")]
+
+    assert filtered_replies.status_code == 200
+    assert result_ids(filtered_replies.json()["items"]) == [("reply", "201")]
+
+
+@pytest.mark.anyio
+async def test_results_reject_invalid_published_date_ranges(client: httpx.AsyncClient) -> None:
+    reversed_response = await client.get(
+        "/api/results",
+        params={"published_from": "2026-04-26", "published_to": "2026-04-25"},
+    )
+    invalid_response = await client.get("/api/posts", params={"published_from": "not-a-date"})
+
+    assert reversed_response.status_code == 422
+    assert invalid_response.status_code == 422
 
 
 @pytest.mark.anyio

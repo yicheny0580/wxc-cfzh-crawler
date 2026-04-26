@@ -31,7 +31,33 @@ def search_pattern(search: str) -> str:
     return f"%{search.strip().lower()}%"
 
 
-def post_filters(search: str | None, author: str | None) -> tuple[str, list[object]]:
+def add_published_date_filters(
+    clauses: list[str],
+    params: list[object],
+    alias: str,
+    *,
+    published_from: str | None,
+    published_to: str | None,
+) -> None:
+    if published_from or published_to:
+        clauses.append(f"{alias}.published_at IS NOT NULL")
+
+    if published_from:
+        clauses.append(f"substr({alias}.published_at, 1, 10) >= ?")
+        params.append(published_from)
+
+    if published_to:
+        clauses.append(f"substr({alias}.published_at, 1, 10) <= ?")
+        params.append(published_to)
+
+
+def post_filters(
+    search: str | None,
+    author: str | None,
+    *,
+    published_from: str | None = None,
+    published_to: str | None = None,
+) -> tuple[str, list[object]]:
     clauses: list[str] = []
     params: list[object] = []
 
@@ -52,6 +78,14 @@ def post_filters(search: str | None, author: str | None) -> tuple[str, list[obje
         clauses.append("p.author = ?")
         params.append(author.strip())
 
+    add_published_date_filters(
+        clauses,
+        params,
+        "p",
+        published_from=published_from,
+        published_to=published_to,
+    )
+
     if not clauses:
         return "", params
     return "WHERE " + " AND ".join(clauses), params
@@ -62,6 +96,8 @@ def record_filters(
     *,
     search: str | None,
     author: str | None,
+    published_from: str | None = None,
+    published_to: str | None = None,
 ) -> tuple[str, list[object]]:
     clauses: list[str] = []
     params: list[object] = []
@@ -82,6 +118,14 @@ def record_filters(
     if author and author.strip():
         clauses.append(f"{alias}.author = ?")
         params.append(author.strip())
+
+    add_published_date_filters(
+        clauses,
+        params,
+        alias,
+        published_from=published_from,
+        published_to=published_to,
+    )
 
     if not clauses:
         return "", params

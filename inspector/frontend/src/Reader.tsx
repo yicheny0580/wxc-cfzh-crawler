@@ -236,7 +236,7 @@ function ReplyNode({
   const nestedCount = descendantReplyCount(reply);
 
   return (
-    <div className="border-l-2 border-emerald-700 bg-white pl-3" data-reply-id={reply.reply_id}>
+    <div className="border-l-2 border-emerald-700 bg-white" data-reply-id={reply.reply_id}>
       <div
         onClick={(event) => {
           if (shouldIgnoreReplyToggle(event.target) || window.getSelection()?.toString()) {

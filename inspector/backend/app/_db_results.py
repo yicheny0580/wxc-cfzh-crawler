@@ -16,10 +16,17 @@ def fetch_posts(
     *,
     search: str | None,
     author: str | None,
+    published_from: str | None,
+    published_to: str | None,
     limit: int,
     offset: int,
 ) -> dict[str, object]:
-    where_clause, params = post_filters(search, author)
+    where_clause, params = post_filters(
+        search,
+        author,
+        published_from=published_from,
+        published_to=published_to,
+    )
     total = conn.execute(
         f"SELECT COUNT(*) FROM posts p {where_clause}",
         params,
@@ -61,6 +68,8 @@ def fetch_results(
     *,
     search: str | None,
     author: str | None,
+    published_from: str | None,
+    published_to: str | None,
     include_posts: bool,
     include_replies: bool,
     limit: int,
@@ -70,7 +79,13 @@ def fetch_results(
     params: list[object] = []
 
     if include_posts:
-        where_clause, post_params = record_filters("p", search=search, author=author)
+        where_clause, post_params = record_filters(
+            "p",
+            search=search,
+            author=author,
+            published_from=published_from,
+            published_to=published_to,
+        )
         selects.append(
             f"""
             SELECT
@@ -108,7 +123,13 @@ def fetch_results(
         params.extend(post_params)
 
     if include_replies:
-        where_clause, reply_params = record_filters("r", search=search, author=author)
+        where_clause, reply_params = record_filters(
+            "r",
+            search=search,
+            author=author,
+            published_from=published_from,
+            published_to=published_to,
+        )
         selects.append(
             f"""
             SELECT

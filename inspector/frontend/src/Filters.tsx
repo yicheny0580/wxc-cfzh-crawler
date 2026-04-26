@@ -144,18 +144,22 @@ export function AuthorFilter({
 export function TypeFilter({
   includePosts,
   includeReplies,
+  showLabel = true,
   onIncludePostsChange,
   onIncludeRepliesChange
 }: {
   includePosts: boolean;
   includeReplies: boolean;
+  showLabel?: boolean;
   onIncludePostsChange: (checked: boolean) => void;
   onIncludeRepliesChange: (checked: boolean) => void;
 }) {
   return (
-    <fieldset className="flex h-9 items-center gap-1 rounded-md border border-stone-300 bg-white px-2">
+    <fieldset className="inline-flex h-9 items-center gap-1 rounded-md border border-stone-300 bg-white p-1">
       <legend className="sr-only">Result type</legend>
-      <span className="mr-1 text-xs font-medium uppercase text-stone-500">Type</span>
+      {showLabel ? (
+        <span className="ml-1 mr-1 text-xs font-medium uppercase text-stone-500">Type</span>
+      ) : null}
       <TypeFilterOption label="Posts" checked={includePosts} onChange={onIncludePostsChange} />
       <TypeFilterOption
         label="Replies"
@@ -178,7 +182,7 @@ function TypeFilterOption({
   return (
     <label
       className={`flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-sm transition ${
-        checked ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"
+        checked ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-100"
       }`}
     >
       <input
@@ -189,7 +193,7 @@ function TypeFilterOption({
       />
       <span
         className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm border ${
-          checked ? "border-emerald-700 bg-white text-emerald-700" : "border-stone-400 bg-white"
+          checked ? "border-white bg-white text-emerald-700" : "border-stone-400 bg-white"
         }`}
       >
         {checked ? <Check className="h-3 w-3" /> : null}

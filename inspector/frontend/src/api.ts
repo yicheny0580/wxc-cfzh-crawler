@@ -72,6 +72,8 @@ export function getAuthors(): Promise<AuthorSummary[]> {
 export interface PostQuery {
   search?: string;
   author?: string;
+  publishedFrom?: string;
+  publishedTo?: string;
   limit: number;
   offset: number;
 }
@@ -84,6 +86,12 @@ export function getPosts(query: PostQuery): Promise<PostListResponse> {
   if (query.author?.trim()) {
     params.set("author", query.author.trim());
   }
+  if (query.publishedFrom?.trim()) {
+    params.set("published_from", query.publishedFrom.trim());
+  }
+  if (query.publishedTo?.trim()) {
+    params.set("published_to", query.publishedTo.trim());
+  }
   params.set("limit", String(query.limit));
   params.set("offset", String(query.offset));
   return request<PostListResponse>(`/api/posts?${params.toString()}`);
@@ -92,6 +100,8 @@ export function getPosts(query: PostQuery): Promise<PostListResponse> {
 export interface ResultQuery {
   search?: string;
   author?: string;
+  publishedFrom?: string;
+  publishedTo?: string;
   includePosts: boolean;
   includeReplies: boolean;
   limit: number;
@@ -105,6 +115,12 @@ export function getResults(query: ResultQuery): Promise<ResultListResponse> {
   }
   if (query.author?.trim()) {
     params.set("author", query.author.trim());
+  }
+  if (query.publishedFrom?.trim()) {
+    params.set("published_from", query.publishedFrom.trim());
+  }
+  if (query.publishedTo?.trim()) {
+    params.set("published_to", query.publishedTo.trim());
   }
   params.set("include_posts", String(query.includePosts));
   params.set("include_replies", String(query.includeReplies));

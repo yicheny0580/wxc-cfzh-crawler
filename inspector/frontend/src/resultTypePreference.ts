@@ -5,10 +5,17 @@ export interface ResultTypeFilterPreference {
 
 const RESULT_TYPE_FILTER_STORAGE_KEY = "cfzh-inspector.result-type-filter.v1";
 
-const DEFAULT_RESULT_TYPE_FILTER: ResultTypeFilterPreference = {
+export const DEFAULT_RESULT_TYPE_FILTER: ResultTypeFilterPreference = {
   includePosts: true,
   includeReplies: false
 };
+
+export function resultTypeFiltersMatch(
+  left: ResultTypeFilterPreference,
+  right: ResultTypeFilterPreference
+): boolean {
+  return left.includePosts === right.includePosts && left.includeReplies === right.includeReplies;
+}
 
 function normalizeResultTypeFilterPreference(value: unknown): ResultTypeFilterPreference | null {
   if (!value || typeof value !== "object") {

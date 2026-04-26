@@ -56,9 +56,14 @@ shows `Stopping` until the process exits.
 - `GET /api/posts/{post_id}`
 
 `GET /api/results` is the primary inspector list endpoint. It supports `search`,
-`author`, `include_posts`, `include_replies`, `limit`, and `offset`. Reply results
-include root post metadata so the frontend can open the original post and focus the
-matching reply in context.
+`author`, `published_from`, `published_to`, `include_posts`, `include_replies`,
+`limit`, and `offset`. Reply results include root post metadata so the frontend can
+open the original post and focus the matching reply in context. `published_from`
+and `published_to` are inclusive `YYYY-MM-DD` filters over `published_at`; undated
+records are excluded while either bound is active.
+
+`GET /api/posts` supports the same `search`, `author`, `published_from`,
+`published_to`, `limit`, and `offset` query parameters for post-only lists.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 

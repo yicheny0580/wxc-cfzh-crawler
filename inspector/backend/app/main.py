@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -47,6 +48,22 @@ app.add_middleware(
 )
 
 Connection = Annotated[sqlite3.Connection, Depends(get_connection)]
+PublishedDateQuery = Annotated[date | None, Query()]
+
+
+def validate_published_range(
+    published_from: date | None,
+    published_to: date | None,
+) -> tuple[str | None, str | None]:
+    if published_from and published_to and published_from > published_to:
+        raise HTTPException(
+            status_code=422,
+            detail="published_from must be on or before published_to.",
+        )
+    return (
+        published_from.isoformat() if published_from else None,
+        published_to.isoformat() if published_to else None,
+    )
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -92,10 +109,21 @@ async def posts(
     conn: Connection,
     search: str | None = Query(default=None, max_length=200),
     author: str | None = Query(default=None, max_length=200),
+    published_from: PublishedDateQuery = None,
+    published_to: PublishedDateQuery = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
-    return fetch_posts(conn, search=search, author=author, limit=limit, offset=offset)
+    from_text, to_text = validate_published_range(published_from, published_to)
+    return fetch_posts(
+        conn,
+        search=search,
+        author=author,
+        published_from=from_text,
+        published_to=to_text,
+        limit=limit,
+        offset=offset,
+    )
 
 
 @app.get("/api/results", response_model=ResultListResponse)
@@ -103,15 +131,20 @@ async def results(
     conn: Connection,
     search: str | None = Query(default=None, max_length=200),
     author: str | None = Query(default=None, max_length=200),
+    published_from: PublishedDateQuery = None,
+    published_to: PublishedDateQuery = None,
     include_posts: bool = Query(default=True),
     include_replies: bool = Query(default=True),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    from_text, to_text = validate_published_range(published_from, published_to)
     return fetch_results(
         conn,
         search=search,
         author=author,
+        published_from=from_text,
+        published_to=to_text,
         include_posts=include_posts,
         include_replies=include_replies,
         limit=limit,

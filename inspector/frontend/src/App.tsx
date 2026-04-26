@@ -3,16 +3,22 @@ import { useEffect, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { CrawlControls } from "./CrawlControls";
-import { AuthorFilter, TypeFilter } from "./Filters";
+import { FilterPanel } from "./FilterPanel";
 import { PAGE_SIZE, Pagination, ResultList } from "./Results";
 import { ReaderPane, type FocusRequest } from "./Reader";
 import { ErrorBanner, SummaryStrip } from "./Summary";
 import { resultKey } from "./format";
 import {
+  DEFAULT_RESULT_TYPE_FILTER,
   readResultTypeFilterPreference,
   type ResultTypeFilterPreference,
   writeResultTypeFilterPreference
 } from "./resultTypePreference";
+import {
+  EMPTY_PUBLISHED_TIME_FILTER,
+  publishedTimeRange,
+  type PublishedTimeFilter
+} from "./timeFilter";
 import { useCrawlStatus } from "./useCrawlStatus";
 import type {
   AuthorSummary,
@@ -42,6 +48,9 @@ function App() {
   const [resultTypeFilter, setResultTypeFilter] = useState<ResultTypeFilterPreference>(
     readResultTypeFilterPreference
   );
+  const [publishedTimeFilter, setPublishedTimeFilter] = useState<PublishedTimeFilter>(
+    EMPTY_PUBLISHED_TIME_FILTER
+  );
   const [offset, setOffset] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
   const [bootLoading, setBootLoading] = useState(true);
@@ -56,6 +65,7 @@ function App() {
   selectedPostRef.current = selectedPost;
 
   const { includePosts, includeReplies } = resultTypeFilter;
+  const { publishedFrom, publishedTo } = publishedTimeRange(publishedTimeFilter);
   const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
@@ -111,7 +121,7 @@ function App() {
 
   useEffect(() => {
     setOffset(0);
-  }, [author, includePosts, includeReplies]);
+  }, [author, includePosts, includeReplies, publishedFrom, publishedTo]);
 
   useEffect(() => {
     writeResultTypeFilterPreference(resultTypeFilter);
@@ -134,6 +144,8 @@ function App() {
     getResults({
       search: debouncedQuery,
       author,
+      publishedFrom,
+      publishedTo,
       includePosts,
       includeReplies,
       limit: PAGE_SIZE,
@@ -161,7 +173,17 @@ function App() {
     return () => {
       active = false;
     };
-  }, [author, debouncedQuery, hasResultScope, includePosts, includeReplies, offset, reloadToken]);
+  }, [
+    author,
+    debouncedQuery,
+    hasResultScope,
+    includePosts,
+    includeReplies,
+    offset,
+    publishedFrom,
+    publishedTo,
+    reloadToken
+  ]);
 
   useEffect(() => {
     if (!results) {
@@ -228,22 +250,16 @@ function App() {
     }));
   };
 
-  const updateIncludePosts = (checked: boolean) => {
-    setResultTypeFilter((current) => {
-      if (!checked && !current.includeReplies) {
-        return current;
-      }
-      return { ...current, includePosts: checked };
-    });
+  const updateResultTypeFilter = (nextFilter: ResultTypeFilterPreference) => {
+    setResultTypeFilter((current) =>
+      nextFilter.includePosts || nextFilter.includeReplies ? nextFilter : current
+    );
   };
 
-  const updateIncludeReplies = (checked: boolean) => {
-    setResultTypeFilter((current) => {
-      if (!checked && !current.includePosts) {
-        return current;
-      }
-      return { ...current, includeReplies: checked };
-    });
+  const clearFilters = () => {
+    setAuthor("");
+    setResultTypeFilter(DEFAULT_RESULT_TYPE_FILTER);
+    setPublishedTimeFilter(EMPTY_PUBLISHED_TIME_FILTER);
   };
 
   function refreshAfterCrawl() {
@@ -296,6 +312,17 @@ function App() {
         </div>
       </header>
 
+      <FilterPanel
+        authors={authors}
+        author={author}
+        onAuthorChange={setAuthor}
+        resultTypeFilter={resultTypeFilter}
+        onResultTypeFilterChange={updateResultTypeFilter}
+        publishedTimeFilter={publishedTimeFilter}
+        onPublishedTimeFilterChange={setPublishedTimeFilter}
+        onClearFilters={clearFilters}
+      />
+
       <main className="mx-auto grid w-full max-w-[1800px] gap-3 px-3 py-3 sm:px-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-6">
         <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:min-h-0">
           <div className="shrink-0 border-b border-stone-300 p-2">
@@ -317,15 +344,6 @@ function App() {
                   <X className="h-4 w-4" />
                 </button>
               ) : null}
-            </div>
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-              <AuthorFilter authors={authors} value={author} onChange={setAuthor} />
-              <TypeFilter
-                includePosts={includePosts}
-                includeReplies={includeReplies}
-                onIncludePostsChange={updateIncludePosts}
-                onIncludeRepliesChange={updateIncludeReplies}
-              />
             </div>
           </div>
           <ResultList
