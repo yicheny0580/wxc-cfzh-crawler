@@ -6,6 +6,7 @@ The crawler package owns Scrapy crawling, HTML parsing, SQLite persistence, and 
 
 - [../src/wxc_cfzh_crawler/spiders/cfzh.py](../src/wxc_cfzh_crawler/spiders/cfzh.py): Scrapy spider and persistent frontier scheduling.
 - [../src/wxc_cfzh_crawler/parsing.py](../src/wxc_cfzh_crawler/parsing.py): HTML parsing for forum indexes, root posts, and replies.
+- [../src/wxc_cfzh_crawler/listing_records.py](../src/wxc_cfzh_crawler/listing_records.py): conversion from listing rows to frontier and listing-only records.
 - [../src/wxc_cfzh_crawler/db.py](../src/wxc_cfzh_crawler/db.py): SQLite schema, upserts, frontier state, and fetch helpers.
 - [../src/wxc_cfzh_crawler/export.py](../src/wxc_cfzh_crawler/export.py): flat and nested export shapes.
 - [../pyproject.toml](../pyproject.toml): crawler dependencies, test paths, and lint settings.
@@ -38,6 +39,11 @@ By default, recipe-driven data writes go to root `data/crawler.sqlite3`.
 ## Behavior Notes
 
 Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen. When that happens, the root post and known replies under that root are reopened so nested reply links can be rediscovered.
+
+Listing rows expose byte counts and nesting. When a discovered post or reply is
+listed as `0 bytes` and the listing/comment tree shows no nested replies, the
+crawler stores the visible metadata and marks the frontier row done without
+opening the detail page.
 
 Interactive crawler progress is shown as one live-updating `CFZH` terminal line.
 Redirected or non-interactive output suppresses the live line and leaves failures

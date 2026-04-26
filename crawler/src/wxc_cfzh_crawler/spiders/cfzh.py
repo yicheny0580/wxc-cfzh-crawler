@@ -14,18 +14,24 @@ from wxc_cfzh_crawler.db import (
     format_crawl_progress,
     mark_frontier_failed,
     reset_in_progress_frontier,
+    save_listing_record_without_detail,
     save_post_detail,
     save_reply_detail,
     upsert_frontier_entry,
 )
-from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
+from wxc_cfzh_crawler.listing_records import (
+    frontier_record_from_entry,
+    frontier_records_from_entries,
+    record_from_listing_entry,
+    should_skip_detail,
+)
+from wxc_cfzh_crawler.models import ForumPost, ForumReply
 from wxc_cfzh_crawler.parsing import (
     PostListEntry,
     extract_comment_entries,
     extract_index_entries,
     extract_post_record,
     extract_reply_record,
-    parse_reply_count,
     post_id_from_url,
 )
 from wxc_cfzh_crawler.paths import default_database_url
@@ -112,7 +118,7 @@ class CfzhSpider(scrapy.Spider):
 
         entries = list(extract_index_entries(response))
         for entry in entries:
-            self.enqueue_frontier_entry(entry)
+            self.save_or_enqueue_frontier_entry(entry)
 
         self.update_progress()
 
@@ -127,12 +133,13 @@ class CfzhSpider(scrapy.Spider):
             return
 
         root_post_id = str(post_item["post_id"])
-        child_frontier = self.comment_frontier_records(
+        child_entries = extract_comment_entries(
             response,
             root_post_id=root_post_id,
             base_parent_id=root_post_id,
             base_depth=0,
         )
+        child_frontier = frontier_records_from_entries(child_entries)
         try:
             save_post_detail(
                 self.frontier_conn(),
@@ -147,6 +154,7 @@ class CfzhSpider(scrapy.Spider):
             yield from self.next_frontier_requests()
             return
 
+        self.save_skipped_listing_entries(child_entries)
         self.update_comment_progress(len(child_frontier))
         yield from self.next_frontier_requests()
 
@@ -158,12 +166,13 @@ class CfzhSpider(scrapy.Spider):
             yield from self.next_frontier_requests()
             return
 
-        child_frontier = self.comment_frontier_records(
+        child_entries = extract_comment_entries(
             response,
             root_post_id=str(reply_item["root_post_id"]),
             base_parent_id=str(reply_item["reply_id"]),
             base_depth=int(reply_item.get("depth") or 1),
         )
+        child_frontier = frontier_records_from_entries(child_entries)
         try:
             save_reply_detail(
                 self.frontier_conn(),
@@ -180,30 +189,41 @@ class CfzhSpider(scrapy.Spider):
             yield from self.next_frontier_requests()
             return
 
+        self.save_skipped_listing_entries(child_entries)
         self.update_comment_progress(len(child_frontier))
         yield from self.next_frontier_requests()
 
     def parse_post(self, response: scrapy.http.Response):
         yield from self.parse_root_post(response)
 
-    def comment_frontier_records(
+    def save_skipped_listing_entries(self, entries: list[PostListEntry]) -> None:
+        for forum_order, entry in enumerate(entries, start=1):
+            if should_skip_detail(entry):
+                self.save_listing_record_without_detail(entry, forum_order=forum_order)
+
+    def save_or_enqueue_frontier_entry(
         self,
-        response: scrapy.http.Response,
+        entry: PostListEntry,
         *,
-        root_post_id: str,
-        base_parent_id: str,
-        base_depth: int,
-    ) -> list[FrontierRecord]:
-        entries = extract_comment_entries(
-            response,
-            root_post_id=root_post_id,
-            base_parent_id=base_parent_id,
-            base_depth=base_depth,
+        forum_order: int | None = None,
+    ) -> None:
+        if should_skip_detail(entry):
+            self.save_listing_record_without_detail(entry, forum_order=forum_order)
+            return
+        self.enqueue_frontier_entry(entry, forum_order=forum_order)
+
+    def save_listing_record_without_detail(
+        self,
+        entry: PostListEntry,
+        *,
+        forum_order: int | None = None,
+    ) -> None:
+        save_listing_record_without_detail(
+            self.frontier_conn(),
+            record_from_listing_entry(entry, forum_order=forum_order),
+            frontier_record_from_entry(entry, forum_order=forum_order),
+            max_attempts=MAX_FRONTIER_ATTEMPTS,
         )
-        return [
-            self.frontier_record_from_entry(entry, forum_order=forum_order)
-            for forum_order, entry in enumerate(entries, start=1)
-        ]
 
     def enqueue_frontier_entry(
         self,
@@ -213,32 +233,8 @@ class CfzhSpider(scrapy.Spider):
     ) -> None:
         upsert_frontier_entry(
             self.frontier_conn(),
-            self.frontier_record_from_entry(entry, forum_order=forum_order),
+            frontier_record_from_entry(entry, forum_order=forum_order),
             max_attempts=MAX_FRONTIER_ATTEMPTS,
-        )
-
-    @staticmethod
-    def frontier_record_from_entry(
-        entry: PostListEntry,
-        *,
-        forum_order: int | None = None,
-    ) -> FrontierRecord:
-        is_root = entry.parent_id is None and entry.depth == 0
-        root_post_id = entry.post_id if is_root else entry.root_post_id
-        parent_reply_id = None
-        if not is_root and entry.parent_id and entry.parent_id != root_post_id:
-            parent_reply_id = entry.parent_id
-
-        return FrontierRecord(
-            post_id=entry.post_id,
-            url=entry.url,
-            record_type="post" if is_root else "reply",
-            root_post_id=root_post_id,
-            parent_reply_id=parent_reply_id,
-            depth=entry.depth,
-            forum_order=forum_order,
-            listing_title=entry.title,
-            listing_reply_count=parse_reply_count(entry.title) if is_root else None,
         )
 
     def next_frontier_requests(self):

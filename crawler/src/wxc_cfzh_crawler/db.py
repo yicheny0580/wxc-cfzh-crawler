@@ -61,6 +61,9 @@ from wxc_cfzh_crawler._db_reads import (
     fetch_root_posts as fetch_root_posts,
 )
 from wxc_cfzh_crawler._db_records import (
+    save_listing_record_without_detail as save_listing_record_without_detail,
+)
+from wxc_cfzh_crawler._db_records import (
     save_post_detail as save_post_detail,
 )
 from wxc_cfzh_crawler._db_records import (
@@ -99,6 +102,7 @@ __all__ = [
     "mark_frontier_done",
     "mark_frontier_failed",
     "reset_in_progress_frontier",
+    "save_listing_record_without_detail",
     "save_post_detail",
     "save_reply_detail",
     "sqlite_path_from_url",

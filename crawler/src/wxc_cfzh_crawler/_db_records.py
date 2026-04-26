@@ -163,3 +163,29 @@ def save_reply_detail(
             http_status=http_status,
             commit=False,
         )
+
+
+def save_listing_record_without_detail(
+    conn: sqlite3.Connection,
+    record: ForumPost | ForumReply,
+    frontier: FrontierRecord,
+    *,
+    max_attempts: int = 3,
+) -> None:
+    with conn:
+        upsert_frontier_entry(
+            conn,
+            frontier,
+            max_attempts=max_attempts,
+            commit=False,
+        )
+        if isinstance(record, ForumPost):
+            upsert_post(conn, record, commit=False)
+        else:
+            upsert_reply(conn, record, commit=False)
+        mark_frontier_done(
+            conn,
+            frontier.post_id,
+            http_status=None,
+            commit=False,
+        )

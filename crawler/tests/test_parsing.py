@@ -21,6 +21,10 @@ def response_for(name: str, url: str) -> TextResponse:
     return TextResponse(url=url, body=body, encoding="utf-8")
 
 
+def response_from_html(html: str, url: str) -> TextResponse:
+    return TextResponse(url=url, body=html.encode(), encoding="utf-8")
+
+
 def test_post_id_from_url() -> None:
     assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854.html") == "74854"
     assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854-print.html") == "74854"
@@ -40,6 +44,85 @@ def test_extract_index_entries_preserves_nested_parentage_and_skips_sticky() -> 
     assert by_id["102"].parent_id == "101"
     assert by_id["102"].depth == 2
     assert by_id["200"].parent_id is None
+
+
+def test_extract_index_entries_ignores_sticky_duplicates_before_real_rows() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="postlist">
+              <a href="/cfzh/100.html" class="sticky">Root A sticky</a>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/200.html" class="post">Root B</a>
+                - M (12 bytes) (3 reads) 04/26/2026 08:00:00
+              </p>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/100.html" class="post">Root A</a>
+                - M (12 bytes) (4 reads) 04/26/2026 08:01:00 (1)
+              </p>
+              <p style="margin:2px 0 2px 20px; width:683px">
+                * <a href="/cfzh/101.html" class="post">Reply A1</a>
+                - F (0 bytes) (1 reads) 04/26/2026 08:02:00
+              </p>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    entries = extract_index_entries(response)
+    by_id = {entry.post_id: entry for entry in entries}
+
+    assert [entry.post_id for entry in entries] == ["200", "100", "101"]
+    assert by_id["100"].root_post_id == "100"
+    assert by_id["101"].parent_id == "100"
+    assert by_id["101"].root_post_id == "100"
+
+
+def test_extract_index_entries_reads_listing_metadata_and_children() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="postlist">
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/100.html" class="post">Root A</a>
+                - <a href="//passport.wenxuecity.com/profile.php?cid=author-a">
+                  Author A
+                </a>
+                - M (1,007 bytes) (61 reads) 04/26/2026 08:21:05 (1)
+              </p>
+              <p style="margin:2px 0 2px 20px; width:683px">
+                * <a href="/cfzh/101.html" class="post">Reply A1</a>
+                - <a href="//passport.wenxuecity.com/profile.php?cid=author-b">
+                  Author B
+                </a>
+                - F (0 bytes) (2 reads) 04/26/2026 08:22:05
+              </p>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    entries = extract_index_entries(response)
+    root, reply = entries
+
+    assert root.byte_count == 1007
+    assert root.read_count == 61
+    assert root.reply_count == 1
+    assert root.has_children is True
+    assert root.author == "Author A"
+    assert root.author_profile_url == "https://passport.wenxuecity.com/profile.php?cid=author-a"
+    assert root.published_at is not None
+    assert root.published_at.isoformat() == "2026-04-26T08:21:05"
+    assert reply.byte_count == 0
+    assert reply.has_children is False
 
 
 def test_extract_root_index_entries_only_returns_thread_roots() -> None:
@@ -66,6 +149,40 @@ def test_extract_comment_entries_are_relative_to_root_post() -> None:
     assert by_id["101"].depth == 1
     assert by_id["102"].parent_id == "101"
     assert by_id["102"].depth == 2
+
+
+def test_extract_comment_entries_reads_postreply_listing_datetime() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="comment">
+              <div id="postlist">
+                <p style="margin:2px 0 2px 0px;">
+                  * <a href="/cfzh/101.html" class="post">Reply A1</a>
+                  -<a href="//passport.wenxuecity.com/profile.php?cid=author-a">
+                    Author A
+                  </a>- F (0 bytes) () 04/26/2026 postreply 06:57:06
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/100.html",
+    )
+
+    entries = extract_comment_entries(
+        response,
+        root_post_id="100",
+        base_parent_id="100",
+        base_depth=0,
+    )
+
+    assert entries[0].byte_count == 0
+    assert entries[0].published_at is not None
+    assert entries[0].published_at.isoformat() == "2026-04-26T06:57:06"
 
 
 def test_extract_post_record_reads_metadata_and_body() -> None:

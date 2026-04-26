@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin
@@ -18,6 +18,13 @@ class PostListEntry:
     parent_id: str | None
     root_post_id: str | None
     depth: int
+    byte_count: int | None = None
+    read_count: int | None = None
+    reply_count: int | None = None
+    has_children: bool = False
+    author: str | None = None
+    author_profile_url: str | None = None
+    published_at: datetime | None = None
 
 
 def normalize_text(value: str | None) -> str | None:
@@ -51,6 +58,24 @@ def parse_datetime(value: str | None) -> datetime | None:
             return datetime.strptime(value, pattern)
         except ValueError:
             pass
+    return None
+
+
+def parse_listing_datetime(text: str | None) -> datetime | None:
+    text = normalize_text(text)
+    if not text:
+        return None
+
+    match = re.search(r"\b(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\b", text)
+    if match:
+        return parse_datetime(f"{match.group(1)} {match.group(2)}")
+
+    match = re.search(
+        r"\b(\d{1,2}/\d{1,2}/\d{4})(?:\s+postreply)?\s+(\d{1,2}:\d{2}:\d{2})\b",
+        text,
+    )
+    if match:
+        return parse_datetime(f"{match.group(1)} {match.group(2)}")
     return None
 
 
@@ -89,27 +114,24 @@ def extract_index_entries(response: Any, *, include_sticky: bool = False) -> lis
     stack: dict[int, str] = {}
     seen: set[str] = set()
 
-    for anchor in response.css("a.post, a.sticky"):
+    for anchor in response.css("#postlist p a.post"):
         href = anchor.attrib.get("href")
         url = response.urljoin(href)
         post_id = post_id_from_url(url)
+        is_sticky = "sticky" in (anchor.attrib.get("class") or "").split()
+        if is_sticky and not include_sticky:
+            continue
         if post_id is None or post_id in seen:
             continue
         seen.add(post_id)
 
-        is_sticky = "sticky" in (anchor.attrib.get("class") or "").split()
-        if is_sticky and not include_sticky:
-            continue
+        row = anchor.xpath("ancestor::p[1]")
+        row_text = normalize_text(row.xpath("string(.)").get())
 
-        if is_sticky:
-            depth = 0
-            parent_id = None
-            root_post_id = post_id
-        else:
-            style = anchor.xpath("ancestor::p[1]/@style").get()
-            depth = depth_from_style(style)
-            parent_id = nearest_parent(stack, depth) if depth > 0 else None
-            root_post_id = stack.get(0) if parent_id else post_id
+        style = row.attrib.get("style")
+        depth = depth_from_style(style)
+        parent_id = nearest_parent(stack, depth) if depth > 0 else None
+        root_post_id = stack.get(0) if parent_id else post_id
 
         entries.append(
             PostListEntry(
@@ -119,13 +141,14 @@ def extract_index_entries(response: Any, *, include_sticky: bool = False) -> lis
                 parent_id=parent_id,
                 root_post_id=root_post_id,
                 depth=depth,
+                **listing_metadata(response, row_text, row),
             )
         )
         stack[depth] = post_id
         for stale_depth in [key for key in stack if key > depth]:
             del stack[stale_depth]
 
-    return entries
+    return entries_with_child_flags(entries)
 
 
 def extract_root_index_entries(response: Any) -> list[PostListEntry]:
@@ -155,7 +178,9 @@ def extract_comment_entries(
             continue
         seen.add(post_id)
 
-        style = anchor.xpath("ancestor::p[1]/@style").get()
+        row = anchor.xpath("ancestor::p[1]")
+        row_text = normalize_text(row.xpath("string(.)").get())
+        style = row.attrib.get("style")
         depth = base_depth + depth_from_style(style) + 1
         parent_id = nearest_parent(stack, depth)
 
@@ -167,13 +192,47 @@ def extract_comment_entries(
                 parent_id=parent_id,
                 root_post_id=root_post_id,
                 depth=depth,
+                **listing_metadata(response, row_text, row),
             )
         )
         stack[depth] = post_id
         for stale_depth in [key for key in stack if key > depth]:
             del stack[stale_depth]
 
-    return entries
+    return entries_with_child_flags(entries)
+
+
+def listing_metadata(
+    response: Any,
+    row_text: str | None,
+    row: Any,
+) -> dict[str, Any]:
+    author_link = row.css(
+        "a[href*='passport.wenxuecity.com/profile.php'], a.username"
+    ).getall()
+    author_anchor = row.css("a[href*='passport.wenxuecity.com/profile.php'], a.username")
+    author_profile_url = author_anchor.attrib.get("href") if author_anchor else None
+    if author_profile_url:
+        author_profile_url = response.urljoin(author_profile_url)
+
+    return {
+        "byte_count": parse_int(_first_match(r"\(([\d,]+)\s*bytes\)", row_text)),
+        "read_count": parse_int(_first_match(r"\(([\d,]+)\s*reads\)", row_text)),
+        "reply_count": parse_reply_count(row_text),
+        "author": normalize_text(author_anchor.xpath("string(.)").get()) if author_link else None,
+        "author_profile_url": author_profile_url,
+        "published_at": parse_listing_datetime(row_text),
+    }
+
+
+def entries_with_child_flags(entries: list[PostListEntry]) -> list[PostListEntry]:
+    flagged: list[PostListEntry] = []
+    for index, entry in enumerate(entries):
+        next_entry = entries[index + 1] if index + 1 < len(entries) else None
+        has_nested_row = next_entry is not None and next_entry.depth > entry.depth
+        has_children = bool(entry.reply_count and entry.reply_count > 0) or has_nested_row
+        flagged.append(replace(entry, has_children=has_children))
+    return flagged
 
 
 def extract_post_record(response: Any, *, meta: dict[str, Any] | None = None) -> dict[str, Any]:

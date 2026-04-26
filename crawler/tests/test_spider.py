@@ -73,6 +73,99 @@ def test_parse_index_schedules_non_sticky_frontier_posts_and_replies(tmp_path: P
     assert request_post_ids(results) == ["100", "200", "101", "102"]
 
 
+def test_parse_index_skips_zero_byte_leaf_details(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="postlist">
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/100.html" class="post">Root A</a>
+                - <a href="//passport.wenxuecity.com/profile.php?cid=author-a">
+                  Author A
+                </a>
+                - M (570 bytes) (12 reads) 04/26/2026 08:00:00 (2)
+              </p>
+              <p style="margin:2px 0 2px 20px; width:683px">
+                * <a href="/cfzh/101.html" class="post">Reply A1</a>
+                - Author B - F (0 bytes) (2 reads) 04/26/2026 08:01:00 (1)
+              </p>
+              <p style="margin:2px 0 2px 40px; width:661px">
+                * <a href="/cfzh/102.html" class="post">Reply A1a</a>
+                - Author C - M (0 bytes) (1 reads) 04/26/2026 08:02:00
+              </p>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/200.html" class="post">Root B</a>
+                - Author D - F (0 bytes) (3 reads) 04/26/2026 08:03:00
+              </p>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/300.html" class="post">Root C</a>
+                - Author E - M (12 bytes) (4 reads) 04/26/2026 08:04:00
+              </p>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert request_post_ids(results) == ["100", "300", "101"]
+    replies = fetch_replies(spider.frontier_conn(), root_post_id="100")
+    posts = fetch_root_posts(spider.frontier_conn())
+    assert [reply["reply_id"] for reply in replies] == ["102"]
+    assert replies[0]["parent_reply_id"] == "101"
+    assert replies[0]["byte_count"] == 0
+    assert [post["post_id"] for post in posts] == ["200"]
+    assert posts[0]["byte_count"] == 0
+
+    for post_id in ("102", "200"):
+        row = fetch_frontier_row(spider.frontier_conn(), post_id)
+        assert row is not None
+        assert row["status"] == "done"
+        assert row["last_http_status"] is None
+
+
+def test_parse_index_keeps_replies_under_sticky_duplicate_root(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="postlist">
+              <a href="/cfzh/100.html" class="sticky">Root A sticky</a>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/200.html" class="post">Root B</a>
+                - M (12 bytes) (3 reads) 04/26/2026 08:00:00
+              </p>
+              <p style="margin:2px 0 17px 0px; width:705px">
+                * <a href="/cfzh/100.html" class="post">Root A</a>
+                - M (12 bytes) (4 reads) 04/26/2026 08:01:00 (1)
+              </p>
+              <p style="margin:2px 0 2px 20px; width:683px">
+                * <a href="/cfzh/101.html" class="post">Reply A1</a>
+                - F (0 bytes) (1 reads) 04/26/2026 08:02:00
+              </p>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert request_post_ids(results) == ["200", "100"]
+    assert fetch_replies(spider.frontier_conn(), root_post_id="200") == []
+    replies = fetch_replies(spider.frontier_conn(), root_post_id="100")
+    assert [reply["reply_id"] for reply in replies] == ["101"]
+    assert replies[0]["parent_reply_id"] is None
+
+
 def test_parse_index_updates_live_progress(tmp_path: Path) -> None:
     spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
     response = response_for("forum_index.html", "https://bbs.wenxuecity.com/cfzh/")
@@ -192,6 +285,54 @@ def test_parse_root_post_saves_atomically_and_schedules_replies(tmp_path: Path) 
     assert [request.meta["reply_id"] for request in requests] == ["101", "102"]
     assert [request.meta["root_post_id"] for request in requests] == ["100", "100"]
     assert [request.meta["parent_id"] for request in requests] == ["100", "101"]
+
+
+def test_parse_root_post_skips_zero_byte_leaf_child_replies(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <h1 class="title">Root A</h1>
+            <div id="postmeta">
+              <a href="//passport.wenxuecity.com/profile.php?cid=author-a"
+                 class="username"><span>Author A</span></a>
+              at <span class="date">2026-04-26 08:00:00</span>
+              <small>Read count : <strong><span id="countnum">12</span></strong>
+                (570 bytes)</small>
+            </div>
+            <div id="msgbodyContent"><p>Root body text</p></div>
+            <div id="comment">
+              <div id="postlist">
+                <p style="margin:2px 0 2px 0px;">
+                  * <a href="/cfzh/101.html" class="post">Empty leaf</a>
+                  - Author B - F (0 bytes) () 04/26/2026 postreply 08:01:00
+                </p>
+                <p style="margin:2px 0 2px 0px;">
+                  * <a href="/cfzh/102.html" class="post">Non-empty leaf</a>
+                  - Author C - M (12 bytes) () 04/26/2026 postreply 08:02:00
+                </p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/100.html",
+    )
+
+    results = list(spider.parse_root_post(response))
+
+    assert request_post_ids(results) == ["102"]
+    replies = fetch_replies(spider.frontier_conn(), root_post_id="100")
+    assert [reply["reply_id"] for reply in replies] == ["101"]
+    assert replies[0]["byte_count"] == 0
+    skipped_row = fetch_frontier_row(spider.frontier_conn(), "101")
+    scheduled_row = fetch_frontier_row(spider.frontier_conn(), "102")
+    assert skipped_row is not None
+    assert skipped_row["status"] == "done"
+    assert scheduled_row is not None
+    assert scheduled_row["status"] == "in_progress"
 
 
 def test_parse_reply_saves_atomically_and_schedules_nested_replies(tmp_path: Path) -> None:
