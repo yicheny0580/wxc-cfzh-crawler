@@ -4,6 +4,10 @@ The inspector provides a browser UI over the crawler SQLite database. Query
 endpoints are read-only; the Refresh control can start and stop a crawler
 subprocess against the inspected database.
 
+This file is the inspector package map. Durable cross-domain rules live in root
+docs; inspector docs should stay focused on inspector source layout,
+package-local behavior, API notes, startup, and checks.
+
 ## Root Source Of Truth
 
 - [../../docs/design-docs/project-invariants.md](../../docs/design-docs/project-invariants.md): doc-first workflow, data ownership, and crawler/inspector boundaries.

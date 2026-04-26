@@ -37,6 +37,7 @@ just export-reddit
 - [docs/design-docs/index.md](docs/design-docs/index.md): project invariants, harness design, and code unit design.
 - [docs/product-specs/index.md](docs/product-specs/index.md): product principles and supported workflows.
 - [docs/references/index.md](docs/references/index.md): external references and target-site examples.
+- [docs/exec-plans/index.md](docs/exec-plans/index.md): first-class checked-in plans for substantial work.
 - [crawler/](crawler/): Scrapy crawler, SQLite persistence, export logic, and crawler tests.
 - [crawler/docs/index.md](crawler/docs/index.md): crawler behavior, parameters, and data notes.
 - [inspector/](inspector/): FastAPI backend and React frontend for read-only SQLite inspection.

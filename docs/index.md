@@ -8,7 +8,7 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 - [architecture.md](architecture.md): repo structure, workspace model, and code ownership boundaries.
 - [operations.md](operations.md): local commands for crawl, export, inspect, and verification.
 - [quality.md](quality.md): tests, linting, docs checks, and quality expectations.
-- [exec-plans/index.md](exec-plans/index.md): checked-in plans for larger work.
+- [exec-plans/index.md](exec-plans/index.md): first-class checked-in plans for larger work.
 
 ## Source Of Truth
 
@@ -18,10 +18,21 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 
 ## Domain Sources
 
-- [../crawler/docs/index.md](../crawler/docs/index.md): crawler source of truth.
-- [../inspector/docs/index.md](../inspector/docs/index.md): inspector source of truth.
+- [../crawler/docs/index.md](../crawler/docs/index.md): crawler package map and package-local behavior notes.
+- [../inspector/docs/index.md](../inspector/docs/index.md): inspector package map and package-local behavior notes.
 - [../README.md](../README.md): short human-facing quick start.
 - [../AGENTS.md](../AGENTS.md): short agent-facing entry point.
+
+## Placement Rule
+
+Root docs own durable cross-domain knowledge: invariants, product intent,
+architecture, command harness behavior, quality policy, references, and
+supported workflows. Child docs stay package-local: source maps, local config,
+package behavior, package checks, and links back to root sources of truth.
+
+Use [exec-plans/index.md](exec-plans/index.md) for resumable substantial work.
+When a plan discovers a durable rule or operating assumption, promote it into
+the relevant stable doc before marking the plan complete.
 
 ## External Reference
 

@@ -2,6 +2,10 @@
 
 The crawler package owns Scrapy crawling, HTML parsing, SQLite persistence, and export shapes.
 
+This file is the crawler package map. Durable cross-domain rules live in root
+docs; crawler docs should stay focused on crawler source layout, package-local
+configuration, crawler behavior notes, and crawler checks.
+
 ## Root Source Of Truth
 
 - [../../docs/design-docs/project-invariants.md](../../docs/design-docs/project-invariants.md): doc-first workflow, data ownership, and crawler/inspector boundaries.

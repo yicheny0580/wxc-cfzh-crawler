@@ -13,6 +13,7 @@ DOCS = [
     ROOT / "docs" / "operations.md",
     ROOT / "docs" / "quality.md",
     ROOT / "docs" / "exec-plans" / "index.md",
+    ROOT / "docs" / "exec-plans" / "template.md",
     ROOT / "docs" / "design-docs" / "index.md",
     ROOT / "docs" / "design-docs" / "project-invariants.md",
     ROOT / "docs" / "design-docs" / "harness.md",
@@ -31,6 +32,12 @@ SOURCE_OF_TRUTH_LINKS = [
     "design-docs/index.md",
     "product-specs/index.md",
     "references/index.md",
+    "exec-plans/index.md",
+]
+
+EXEC_PLAN_DIRS = [
+    ROOT / "docs" / "exec-plans" / "active",
+    ROOT / "docs" / "exec-plans" / "completed",
 ]
 
 RETIRED_COMMAND = "w" + "xc"
@@ -49,11 +56,24 @@ def test_doc_map_files_exist() -> None:
     assert missing == []
 
 
+def test_exec_plan_lifecycle_dirs_exist() -> None:
+    missing = [path for path in EXEC_PLAN_DIRS if not path.is_dir()]
+
+    assert missing == []
+
+
 def test_root_index_links_source_of_truth_sections() -> None:
     content = (ROOT / "docs" / "index.md").read_text(encoding="utf-8")
     missing_links = [target for target in SOURCE_OF_TRUTH_LINKS if target not in content]
 
     assert missing_links == []
+
+
+def test_exec_plan_index_requires_stable_doc_promotion() -> None:
+    content = (ROOT / "docs" / "exec-plans" / "index.md").read_text(encoding="utf-8")
+
+    assert "promote" in content
+    assert "stable doc" in content
 
 
 def test_doc_map_relative_links_point_to_files() -> None:

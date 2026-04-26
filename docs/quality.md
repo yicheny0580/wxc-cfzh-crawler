@@ -17,6 +17,10 @@ Root tests include a lightweight docs-structure check. It verifies that the root
 and subproject map files exist, source-of-truth docs are present, and relative
 links in those docs point to real files.
 
+The docs checks follow an almost-strict harness style: they enforce the core map
+files, exec-plan lifecycle directories, and link integrity without turning docs
+into a heavy template system.
+
 Update the relevant docs index when adding:
 
 - a new top-level command
@@ -25,6 +29,11 @@ Update the relevant docs index when adding:
 - a new durable operating assumption
 - a product workflow or product design assumption
 - a target-site reference or parsing assumption
+
+Use `docs/exec-plans/active/` for substantial work that must be resumable by a
+future agent, and move completed plans to `docs/exec-plans/completed/`. Durable
+invariants discovered while executing a plan must be promoted into stable docs
+before the plan is completed.
 
 Meaningful implementation starts by opening the relevant source-of-truth doc. If
 the change affects behavior, commands, APIs, runtime paths, workflows, product
