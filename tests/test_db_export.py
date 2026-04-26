@@ -1,0 +1,178 @@
+from __future__ import annotations
+
+from datetime import datetime
+
+from wxc_cfzh_crawler.db import (
+    claim_next_frontier,
+    connect,
+    fetch_frontier_row,
+    fetch_replies,
+    fetch_root_posts,
+    mark_frontier_done,
+    sqlite_path_from_url,
+    upsert_frontier_entry,
+    upsert_post,
+    upsert_reply,
+)
+from wxc_cfzh_crawler.export import build_posts_with_replies
+from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
+
+
+def test_sqlite_path_supports_project_relative_and_absolute_urls() -> None:
+    assert (
+        sqlite_path_from_url("sqlite:///data/crawler.sqlite3").as_posix()
+        == "data/crawler.sqlite3"
+    )
+    assert (
+        sqlite_path_from_url("sqlite:////tmp/crawler.sqlite3").as_posix()
+        == "/tmp/crawler.sqlite3"
+    )
+
+
+def test_sqlite_post_upsert_is_idempotent(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+
+    post = ForumPost(
+        post_id="100",
+        url="https://bbs.wenxuecity.com/cfzh/100.html",
+        title="Root A",
+        published_at=datetime(2026, 4, 25, 8, 39, 22),
+    )
+    upsert_post(conn, post)
+    upsert_post(conn, post.model_copy(update={"title": "Root A updated"}))
+
+    rows = fetch_root_posts(conn)
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Root A updated"
+
+
+def test_sqlite_reply_upsert_is_idempotent(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+
+    reply = ForumReply(
+        reply_id="101",
+        root_post_id="100",
+        url="https://bbs.wenxuecity.com/cfzh/101.html",
+        title="Reply A",
+        published_at=datetime(2026, 4, 25, 8, 51, 0),
+        depth=1,
+        forum_order=1,
+    )
+    upsert_reply(conn, reply)
+    upsert_reply(conn, reply.model_copy(update={"title": "Reply A updated"}))
+
+    rows = fetch_replies(conn, root_post_id="100")
+    assert len(rows) == 1
+    assert rows[0]["title"] == "Reply A updated"
+
+
+def test_frontier_claim_and_done_transition(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_title="Root A",
+        ),
+    )
+
+    claimed = claim_next_frontier(conn)
+    assert claimed is not None
+    assert claimed["post_id"] == "100"
+    assert claimed["status"] == "in_progress"
+    assert claimed["attempts"] == 1
+
+    mark_frontier_done(conn, "100", http_status=200)
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "done"
+    assert row["last_http_status"] == 200
+
+
+def test_frontier_delta_refresh_marks_done_root_pending(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_post(
+        conn,
+        ForumPost(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            title="Root A",
+            reply_count=1,
+        ),
+    )
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_reply_count=1,
+        ),
+    )
+    claim_next_frontier(conn)
+    mark_frontier_done(conn, "100", http_status=200)
+
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_reply_count=2,
+        ),
+    )
+
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "pending"
+
+
+def test_frontier_backfills_existing_posts_and_replies(tmp_path) -> None:
+    db_url = f"sqlite:///{tmp_path / 'crawler.sqlite3'}"
+    conn = connect(db_url)
+    upsert_post(
+        conn,
+        ForumPost(post_id="100", url="https://bbs.wenxuecity.com/cfzh/100.html"),
+    )
+    upsert_reply(
+        conn,
+        ForumReply(
+            reply_id="101",
+            root_post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/101.html",
+            depth=1,
+        ),
+    )
+    conn.close()
+
+    conn = connect(db_url)
+    post_row = fetch_frontier_row(conn, "100")
+    reply_row = fetch_frontier_row(conn, "101")
+
+    assert post_row is not None
+    assert post_row["status"] == "done"
+    assert post_row["record_type"] == "post"
+    assert reply_row is not None
+    assert reply_row["status"] == "done"
+    assert reply_row["record_type"] == "reply"
+
+
+def test_build_posts_with_replies_preserves_nested_replies() -> None:
+    posts = [
+        {"post_id": "100", "title": "Root"},
+    ]
+    replies = [
+        {"reply_id": "101", "root_post_id": "100", "parent_reply_id": None, "title": "Reply"},
+        {"reply_id": "102", "root_post_id": "100", "parent_reply_id": "101", "title": "Nested"},
+    ]
+
+    records = build_posts_with_replies(posts, replies)
+
+    assert records[0]["post_id"] == "100"
+    assert records[0]["replies"][0]["reply_id"] == "101"
+    assert records[0]["replies"][0]["replies"][0]["reply_id"] == "102"

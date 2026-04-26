@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.scrapy/
+data/
+*.sqlite3
+*.db
+inspector/backend/.venv/
+inspector/frontend/node_modules/
+inspector/frontend/dist/

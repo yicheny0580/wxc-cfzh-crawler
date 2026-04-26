@@ -1,0 +1,95 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+from scrapy.http import TextResponse
+
+from wxc_cfzh_crawler.parsing import (
+    extract_comment_entries,
+    extract_index_entries,
+    extract_post_record,
+    extract_reply_record,
+    extract_root_index_entries,
+    post_id_from_url,
+)
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+def response_for(name: str, url: str) -> TextResponse:
+    body = (FIXTURES / name).read_bytes()
+    return TextResponse(url=url, body=body, encoding="utf-8")
+
+
+def test_post_id_from_url() -> None:
+    assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854.html") == "74854"
+    assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854-print.html") == "74854"
+    assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/?page=1") is None
+
+
+def test_extract_index_entries_preserves_nested_parentage_and_skips_sticky() -> None:
+    response = response_for("forum_index.html", "https://bbs.wenxuecity.com/cfzh/")
+
+    entries = extract_index_entries(response)
+    by_id = {entry.post_id: entry for entry in entries}
+
+    assert "70000" not in by_id
+    assert by_id["100"].root_post_id == "100"
+    assert by_id["101"].parent_id == "100"
+    assert by_id["101"].root_post_id == "100"
+    assert by_id["102"].parent_id == "101"
+    assert by_id["102"].depth == 2
+    assert by_id["200"].parent_id is None
+
+
+def test_extract_root_index_entries_only_returns_thread_roots() -> None:
+    response = response_for("forum_index.html", "https://bbs.wenxuecity.com/cfzh/")
+
+    entries = extract_root_index_entries(response)
+
+    assert [entry.post_id for entry in entries] == ["100", "200"]
+
+
+def test_extract_comment_entries_are_relative_to_root_post() -> None:
+    response = response_for("thread.html", "https://bbs.wenxuecity.com/cfzh/100.html")
+
+    entries = extract_comment_entries(
+        response,
+        root_post_id="100",
+        base_parent_id="100",
+        base_depth=0,
+    )
+    by_id = {entry.post_id: entry for entry in entries}
+
+    assert "999" not in by_id
+    assert by_id["101"].parent_id == "100"
+    assert by_id["101"].depth == 1
+    assert by_id["102"].parent_id == "101"
+    assert by_id["102"].depth == 2
+
+
+def test_extract_post_record_reads_metadata_and_body() -> None:
+    response = response_for("thread.html", "https://bbs.wenxuecity.com/cfzh/100.html")
+
+    record = extract_post_record(response, meta={})
+
+    assert record["post_id"] == "100"
+    assert record["title"] == "Root A"
+    assert record["author"] == "Author A"
+    assert record["byte_count"] == 570
+    assert record["read_count"] == 1436
+    assert record["body_text"] == "Root body text"
+    assert record["edited_at"].isoformat() == "2026-04-25T10:01:34"
+
+
+def test_extract_reply_record_uses_postparent() -> None:
+    response = response_for("reply.html", "https://bbs.wenxuecity.com/cfzh/102.html")
+
+    record = extract_reply_record(response, meta={"root_post_id": "100", "reply_depth": 2})
+
+    assert record["item_type"] == "reply"
+    assert record["reply_id"] == "102"
+    assert record["parent_reply_id"] == "101"
+    assert record["root_post_id"] == "100"
+    assert record["depth"] == 2
+    assert record["body_text"] == "Reply body text"
