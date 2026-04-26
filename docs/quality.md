@@ -4,8 +4,10 @@
 
 - Crawler tests: `uv run --project crawler pytest crawler/tests`
 - Inspector backend tests: `uv run --project inspector/backend pytest inspector/backend/tests`
+- Quality tool tests: `uv run pytest tests`
 - Frontend build: `npm --prefix inspector/frontend run build`
 - Python lint: `uv run ruff check .`
+- Production file length lint: `uv run python scripts/check_file_lines.py`
 
 ## Documentation Checks
 
@@ -24,3 +26,5 @@ Update the relevant docs index when adding:
 - Prefer standard CLI flags over framework-specific argument syntax for user workflows.
 - Keep data writes inside root `data/` by default.
 - Keep inspector database access read-only.
+- Keep production code files at or below 400 physical lines. Split oversized files by
+  responsibility instead of raising the cap.

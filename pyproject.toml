@@ -33,3 +33,22 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+
+[tool.wxc.file_lines]
+max_lines = 400
+include = [
+    "crawler/src/**/*.py",
+    "inspector/backend/app/**/*.py",
+    "inspector/frontend/src/**/*.css",
+    "inspector/frontend/src/**/*.ts",
+    "inspector/frontend/src/**/*.tsx",
+]
+exclude = [
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
+    "**/.venv/**",
+    "**/__pycache__/**",
+    "**/dist/**",
+    "**/node_modules/**",
+    "**/tests/**",
+]
