@@ -73,12 +73,9 @@ export function ReaderPane({
     }
 
     if (!focusRequest.replyId) {
-      const handle = window.setTimeout(() => {
-        article.scrollIntoView({ block: "start" });
-        setHighlightedReplyId(null);
-        handledFocusRequestIdRef.current = focusRequest.id;
-      }, 0);
-      return () => window.clearTimeout(handle);
+      setHighlightedReplyId(null);
+      handledFocusRequestIdRef.current = focusRequest.id;
+      return;
     }
 
     const replyPath = findReplyPath(post.replies, focusRequest.replyId);
