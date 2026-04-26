@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ExternalLink,
@@ -75,6 +76,25 @@ function authorLabel(author: AuthorSummary): string {
   )})`;
 }
 
+function descendantReplyCount(reply: ReplyDetail): number {
+  return reply.replies.reduce((total, child) => total + 1 + descendantReplyCount(child), 0);
+}
+
+function findReplyPath(replies: ReplyDetail[], replyId: string): string[] | null {
+  for (const reply of replies) {
+    if (reply.reply_id === replyId) {
+      return [reply.reply_id];
+    }
+
+    const childPath = findReplyPath(reply.replies, replyId);
+    if (childPath) {
+      return [reply.reply_id, ...childPath];
+    }
+  }
+
+  return null;
+}
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -84,6 +104,7 @@ function App() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
   const [targetReplyId, setTargetReplyId] = useState<string | null>(null);
+  const [focusRequestId, setFocusRequestId] = useState(0);
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [author, setAuthor] = useState("");
@@ -241,6 +262,7 @@ function App() {
     setSelectedResultKey(resultKey(result));
     setSelectedPostId(result.root_post_id);
     setTargetReplyId(result.record_type === "reply" ? result.reply_id : null);
+    setFocusRequestId((current) => current + 1);
   };
 
   const updateIncludePosts = (checked: boolean) => {
@@ -268,12 +290,15 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f6f3ed] text-stone-900">
-      <header className="border-b border-stone-300 bg-[#fbfaf7]">
-        <div className="mx-auto flex max-w-[1600px] flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h1 className="text-2xl font-semibold text-stone-950">CFZH Inspector</h1>
+    <div className="flex min-h-screen flex-col bg-[#f6f3ed] text-stone-900">
+      <header className="shrink-0 border-b border-stone-300 bg-[#fbfaf7]">
+        <div className="mx-auto flex max-w-[1800px] flex-col gap-2 px-3 py-3 sm:px-4 lg:px-6">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0">
+              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
+                <h1 className="text-xl font-semibold text-stone-950">CFZH Inspector</h1>
+                <SummaryStrip summary={summary} loading={bootLoading} />
+              </div>
               <p className="mt-1 max-w-full truncate text-sm text-stone-600">
                 {health?.db_path || summary?.db_path || "SQLite database"}
               </p>
@@ -281,28 +306,27 @@ function App() {
             <button
               type="button"
               onClick={reloadAll}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 shadow-sm transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 shadow-sm transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
               title="Refresh"
             >
               <RefreshCcw className="h-4 w-4" />
               Refresh
             </button>
           </div>
-          <SummaryStrip summary={summary} loading={bootLoading} />
           {error ? <ErrorBanner message={error} /> : null}
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-[1600px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[390px_minmax(0,1fr)] lg:px-8">
-        <aside className="min-h-[calc(100vh-220px)] border border-stone-300 bg-[#fbfaf7]">
-          <div className="border-b border-stone-300 p-3">
+      <main className="mx-auto grid w-full max-w-[1800px] flex-1 gap-3 px-3 py-3 sm:px-4 lg:min-h-0 lg:grid-cols-[360px_minmax(0,1fr)] lg:overflow-hidden lg:px-6">
+        <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:min-h-0">
+          <div className="shrink-0 border-b border-stone-300 p-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder="Search posts and replies"
-                className="h-10 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
+                className="h-9 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
               />
               {query ? (
                 <button
@@ -315,37 +339,47 @@ function App() {
                 </button>
               ) : null}
             </div>
-            <select
-              value={author}
-              onChange={(event) => setAuthor(event.target.value)}
-              className="mt-3 h-10 w-full rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-            >
-              <option value="">All authors</option>
-              {authors.map((item) => (
-                <option key={item.name} value={item.name}>
-                  {authorLabel(item)}
-                </option>
-              ))}
-            </select>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <label className="flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-800">
-                <input
-                  type="checkbox"
-                  checked={includePosts}
-                  onChange={(event) => updateIncludePosts(event.target.checked)}
-                  className="h-4 w-4 accent-emerald-700"
-                />
-                Posts
-              </label>
-              <label className="flex h-9 items-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm text-stone-800">
-                <input
-                  type="checkbox"
-                  checked={includeReplies}
-                  onChange={(event) => updateIncludeReplies(event.target.checked)}
-                  className="h-4 w-4 accent-emerald-700"
-                />
-                Replies
-              </label>
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
+              <select
+                value={author}
+                onChange={(event) => setAuthor(event.target.value)}
+                className="h-9 min-w-0 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
+              >
+                <option value="">All authors</option>
+                {authors.map((item) => (
+                  <option key={item.name} value={item.name}>
+                    {authorLabel(item)}
+                  </option>
+                ))}
+              </select>
+              <div className="flex h-9 overflow-hidden rounded-md border border-stone-300 bg-white">
+                <label
+                  className={`flex cursor-pointer items-center px-3 text-sm font-medium transition ${
+                    includePosts ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={includePosts}
+                    onChange={(event) => updateIncludePosts(event.target.checked)}
+                    className="sr-only"
+                  />
+                  Posts
+                </label>
+                <label
+                  className={`flex cursor-pointer items-center border-l border-stone-300 px-3 text-sm font-medium transition ${
+                    includeReplies ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={includeReplies}
+                    onChange={(event) => updateIncludeReplies(event.target.checked)}
+                    className="sr-only"
+                  />
+                  Replies
+                </label>
+              </div>
             </div>
           </div>
           <ResultList
@@ -363,10 +397,11 @@ function App() {
           />
         </aside>
 
-        <section className="min-h-[calc(100vh-220px)] border border-stone-300 bg-[#fbfaf7]">
+        <section className="flex min-h-[520px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:min-h-0">
           <ReaderPane
             post={selectedPost}
             targetReplyId={targetReplyId}
+            focusRequestId={focusRequestId}
             loading={detailLoading}
             error={detailError}
             empty={!selectedPostId && !resultsLoading}
@@ -392,16 +427,16 @@ function SummaryStrip({
   ];
 
   return (
-    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+    <dl className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-600">
       {items.map(([label, value]) => (
-        <div key={label} className="border border-stone-300 bg-white px-3 py-2">
-          <div className="text-xs font-medium uppercase text-stone-500">{label}</div>
-          <div className="mt-1 text-lg font-semibold text-stone-950">
+        <div key={label} className="flex items-baseline gap-1.5 border-l border-stone-300 pl-3 first:border-l-0 first:pl-0">
+          <dt className="font-medium uppercase text-stone-500">{label}</dt>
+          <dd className="font-semibold text-stone-950">
             {loading && value === "-" ? "..." : value}
-          </div>
+          </dd>
         </div>
       ))}
-    </div>
+    </dl>
   );
 }
 
@@ -433,7 +468,7 @@ function ResultList({
   }
 
   return (
-    <div className="scrollbar-stable max-h-[calc(100vh-430px)] overflow-y-auto">
+    <div className="scrollbar-stable min-h-0 flex-1 overflow-y-auto">
       {results.map((result) => {
         const selected = resultKey(result) === selectedResultKey;
         const isReply = result.record_type === "reply";
@@ -498,7 +533,7 @@ function Pagination({
   const end = results ? Math.min(results.offset + results.limit, results.total) : 0;
 
   return (
-    <div className="flex items-center justify-between border-t border-stone-300 bg-[#fbfaf7] px-3 py-3">
+    <div className="flex shrink-0 items-center justify-between border-t border-stone-300 bg-[#fbfaf7] px-3 py-2">
       <div className="text-sm text-stone-600">
         {formatNumber(start)}-{formatNumber(end)} of {formatNumber(results?.total ?? 0)}
       </div>
@@ -529,18 +564,25 @@ function Pagination({
 function ReaderPane({
   post,
   targetReplyId,
+  focusRequestId,
   loading,
   error,
   empty
 }: {
   post: PostDetail | null;
   targetReplyId: string | null;
+  focusRequestId: number;
   loading: boolean;
   error: string | null;
   empty: boolean;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
+  const [collapsedReplyIds, setCollapsedReplyIds] = useState<Set<string>>(() => new Set());
+
+  useEffect(() => {
+    setCollapsedReplyIds(new Set());
+  }, [post?.post_id]);
 
   useEffect(() => {
     const article = articleRef.current;
@@ -552,6 +594,15 @@ function ReaderPane({
       article.scrollTo({ top: 0 });
       setHighlightedReplyId(null);
       return;
+    }
+
+    const replyPath = findReplyPath(post.replies, targetReplyId);
+    if (replyPath) {
+      setCollapsedReplyIds((current) => {
+        const next = new Set(current);
+        replyPath.forEach((replyId) => next.delete(replyId));
+        return next;
+      });
     }
 
     const handle = window.setTimeout(() => {
@@ -567,7 +618,19 @@ function ReaderPane({
       window.clearTimeout(handle);
       window.clearTimeout(clearHighlight);
     };
-  }, [post, targetReplyId]);
+  }, [focusRequestId, post, targetReplyId]);
+
+  const toggleReply = (replyId: string) => {
+    setCollapsedReplyIds((current) => {
+      const next = new Set(current);
+      if (next.has(replyId)) {
+        next.delete(replyId);
+      } else {
+        next.add(replyId);
+      }
+      return next;
+    });
+  };
 
   if (loading) {
     return <StateBlock text="Loading post..." />;
@@ -584,9 +647,9 @@ function ReaderPane({
   return (
     <article
       ref={articleRef}
-      className="scrollbar-stable max-h-[calc(100vh-220px)] overflow-y-auto"
+      className="scrollbar-stable h-full min-h-0 overflow-y-auto"
     >
-      <div className="border-b border-stone-300 bg-white px-4 py-4 sm:px-6">
+      <div className="border-b border-stone-300 bg-white px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <h2 className="text-xl font-semibold leading-7 text-stone-950 sm:text-2xl">
@@ -606,7 +669,7 @@ function ReaderPane({
         </div>
       </div>
 
-      <div className="px-4 py-5 sm:px-6">
+      <div className="px-4 py-4 sm:px-5">
         <BodyContent
           html={post.body_html}
           text={post.body_text}
@@ -614,7 +677,7 @@ function ReaderPane({
         />
       </div>
 
-      <div className="border-t border-stone-300 px-4 py-4 sm:px-6">
+      <div className="border-t border-stone-300 px-4 py-4 sm:px-5">
         <div className="mb-3 flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-stone-950">Replies</h3>
           <span className="rounded-sm bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">
@@ -628,6 +691,8 @@ function ReaderPane({
                 key={reply.reply_id}
                 reply={reply}
                 highlightedReplyId={highlightedReplyId}
+                collapsedReplyIds={collapsedReplyIds}
+                onToggle={toggleReply}
               />
             ))}
           </div>
@@ -655,12 +720,18 @@ function MetaLine({ post }: { post: PostDetail | PostListItem }) {
 
 function ReplyNode({
   reply,
-  highlightedReplyId
+  highlightedReplyId,
+  collapsedReplyIds,
+  onToggle
 }: {
   reply: ReplyDetail;
   highlightedReplyId: string | null;
+  collapsedReplyIds: Set<string>;
+  onToggle: (replyId: string) => void;
 }) {
   const highlighted = reply.reply_id === highlightedReplyId;
+  const collapsed = collapsedReplyIds.has(reply.reply_id);
+  const nestedCount = descendantReplyCount(reply);
 
   return (
     <div className="border-l-2 border-emerald-700 bg-white pl-3" data-reply-id={reply.reply_id}>
@@ -670,10 +741,31 @@ function ReplyNode({
         }`}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-            <span className="font-semibold text-stone-950">{reply.author || "Unknown"}</span>
-            <span className="text-stone-500">{formatDate(reply.published_at)}</span>
-            <span className="text-stone-500">#{reply.reply_id}</span>
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <button
+              type="button"
+              onClick={() => onToggle(reply.reply_id)}
+              className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              title={collapsed ? "Expand reply" : "Collapse reply"}
+              aria-label={collapsed ? "Expand reply" : "Collapse reply"}
+              aria-expanded={!collapsed}
+            >
+              {collapsed ? (
+                <ChevronRight className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              <span className="font-semibold text-stone-950">{reply.author || "Unknown"}</span>
+              <span className="text-stone-500">{formatDate(reply.published_at)}</span>
+              <span className="text-stone-500">#{reply.reply_id}</span>
+              {collapsed && nestedCount > 0 ? (
+                <span className="rounded-sm bg-stone-100 px-1.5 py-0.5 text-xs font-medium text-stone-600">
+                  {countLabel(nestedCount, "reply")}
+                </span>
+              ) : null}
+            </div>
           </div>
           <a
             href={reply.url}
@@ -685,26 +777,32 @@ function ReplyNode({
             <ExternalLink className="h-4 w-4" />
           </a>
         </div>
-        {reply.title ? (
-          <div className="mt-2 text-sm font-medium text-stone-800">{reply.title}</div>
-        ) : null}
-        {reply.body_html || reply.body_text ? (
-          <BodyContent
-            html={reply.body_html}
-            text={reply.body_text}
-            className="mt-2 text-sm leading-6 text-stone-800"
-          />
-        ) : !reply.title ? (
-          <div className="mt-2 text-sm text-stone-500">No body text.</div>
+        {!collapsed ? (
+          <>
+            {reply.title ? (
+              <div className="mt-2 text-sm font-medium text-stone-800">{reply.title}</div>
+            ) : null}
+            {reply.body_html || reply.body_text ? (
+              <BodyContent
+                html={reply.body_html}
+                text={reply.body_text}
+                className="mt-2 text-sm leading-6 text-stone-800"
+              />
+            ) : !reply.title ? (
+              <div className="mt-2 text-sm text-stone-500">No body text.</div>
+            ) : null}
+          </>
         ) : null}
       </div>
-      {reply.replies.length > 0 ? (
+      {!collapsed && reply.replies.length > 0 ? (
         <div className="mt-3 space-y-3 pl-3">
           {reply.replies.map((child) => (
             <ReplyNode
               key={child.reply_id}
               reply={child}
               highlightedReplyId={highlightedReplyId}
+              collapsedReplyIds={collapsedReplyIds}
+              onToggle={onToggle}
             />
           ))}
         </div>
@@ -743,7 +841,7 @@ function BodyContent({
 
 function StateBlock({ text }: { text: string }) {
   return (
-    <div className="flex min-h-52 items-center justify-center px-4 text-center text-sm text-stone-600">
+    <div className="flex min-h-52 flex-1 items-center justify-center px-4 text-center text-sm text-stone-600">
       {text}
     </div>
   );
