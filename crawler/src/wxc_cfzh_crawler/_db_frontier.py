@@ -36,6 +36,7 @@ def upsert_frontier_entry(
     entry: FrontierRecord,
     *,
     max_attempts: int = 3,
+    commit: bool = True,
 ) -> None:
     now = utc_now_text()
     existing = fetch_frontier_row(conn, entry.post_id)
@@ -64,7 +65,8 @@ def upsert_frontier_entry(
                 now,
             ),
         )
-        conn.commit()
+        if commit:
+            conn.commit()
         return
 
     status = str(existing["status"])
@@ -118,14 +120,17 @@ def upsert_frontier_entry(
             entry.post_id,
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def reset_in_progress_frontier(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         UPDATE frontier
-        SET status = 'pending', updated_at = ?
+        SET status = 'pending',
+            attempts = CASE WHEN attempts > 0 THEN attempts - 1 ELSE 0 END,
+            updated_at = ?
         WHERE status = 'in_progress'
         """,
         (utc_now_text(),),
@@ -176,6 +181,7 @@ def mark_frontier_done(
     post_id: str,
     *,
     http_status: int | None = None,
+    commit: bool = True,
 ) -> None:
     now = utc_now_text()
     conn.execute(
@@ -190,7 +196,8 @@ def mark_frontier_done(
         """,
         (now, now, http_status, post_id),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
 def mark_frontier_failed(

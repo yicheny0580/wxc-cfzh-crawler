@@ -31,12 +31,22 @@ just list
 - `WXC_REPO_ROOT`: repo root override for unusual launch contexts.
 - `WXC_CRAWLER_USER_AGENT`: crawler user agent override.
 - `WXC_LOG_LEVEL`: default Scrapy log level.
+- `WXC_PROGRESS`: live terminal progress mode. Use `off` to disable.
 
 By default, recipe-driven data writes go to root `data/crawler.sqlite3`.
 
 ## Behavior Notes
 
 Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen.
+
+Interactive crawler progress is shown as one live-updating `CFZH` terminal line.
+Redirected or non-interactive output suppresses the live line and leaves failures
+plus the final summary as normal log lines. Frontier totals are known-so-far
+counts because parsing detail pages can discover additional nested replies.
+Detail-page persistence is transactionally grouped: a fetched root post or reply
+is saved together with child frontier rows discovered from that response before
+the parent frontier row is marked done. If the process stops mid-detail, startup
+resets that in-progress frontier row to pending so it can be retried.
 
 `ROBOTSTXT_OBEY` is intentionally disabled because this crawler is admin-authorized for the target site. The spider still uses conservative concurrency, delay, retry, timeout, and AutoThrottle settings.
 

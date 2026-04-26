@@ -10,11 +10,15 @@ import scrapy
 from wxc_cfzh_crawler.db import (
     claim_next_frontier,
     connect,
+    fetch_crawl_progress,
+    format_crawl_progress,
     mark_frontier_failed,
     reset_in_progress_frontier,
+    save_post_detail,
+    save_reply_detail,
     upsert_frontier_entry,
 )
-from wxc_cfzh_crawler.models import FrontierRecord
+from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
 from wxc_cfzh_crawler.parsing import (
     PostListEntry,
     extract_comment_entries,
@@ -25,6 +29,7 @@ from wxc_cfzh_crawler.parsing import (
     post_id_from_url,
 )
 from wxc_cfzh_crawler.paths import default_database_url
+from wxc_cfzh_crawler.progress import get_crawl_progress_reporter
 
 DEFAULT_DATABASE_URL = default_database_url()
 MAX_FRONTIER_ATTEMPTS = 3
@@ -66,6 +71,16 @@ class CfzhSpider(scrapy.Spider):
 
     def closed(self, reason: str) -> None:
         if self.conn is not None:
+            elapsed_text = self.elapsed_time_text()
+            progress = fetch_crawl_progress(self.conn)
+            get_crawl_progress_reporter().close()
+            self.logger.info(
+                "CFZH crawl finished reason=%s elapsed=%s scheduled=%s; %s",
+                reason,
+                elapsed_text,
+                self.scheduled_detail_requests,
+                format_crawl_progress(progress),
+            )
             self.conn.close()
             self.conn = None
 
@@ -95,8 +110,11 @@ class CfzhSpider(scrapy.Spider):
     def parse_index(self, response: scrapy.http.Response, page_number: int):
         self.prepare_frontier()
 
-        for entry in extract_index_entries(response):
+        entries = list(extract_index_entries(response))
+        for entry in entries:
             self.enqueue_frontier_entry(entry)
+
+        self.update_progress()
 
         yield from self.next_frontier_requests()
 
@@ -108,19 +126,28 @@ class CfzhSpider(scrapy.Spider):
             yield from self.next_frontier_requests()
             return
 
-        post_item["_frontier_post_id"] = (
-            response.meta.get("frontier_post_id") or post_item["post_id"]
-        )
-        post_item["_http_status"] = response.status
-        yield post_item
-
         root_post_id = str(post_item["post_id"])
-        self.enqueue_comment_entries(
+        child_frontier = self.comment_frontier_records(
             response,
             root_post_id=root_post_id,
             base_parent_id=root_post_id,
             base_depth=0,
         )
+        try:
+            save_post_detail(
+                self.frontier_conn(),
+                ForumPost.model_validate(self.public_item_data(post_item)),
+                child_frontier,
+                frontier_post_id=str(response.meta.get("frontier_post_id") or root_post_id),
+                http_status=response.status,
+                max_attempts=MAX_FRONTIER_ATTEMPTS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.mark_response_failed(response, exc)
+            yield from self.next_frontier_requests()
+            return
+
+        self.update_comment_progress(len(child_frontier))
         yield from self.next_frontier_requests()
 
     def parse_reply(self, response: scrapy.http.Response):
@@ -131,41 +158,52 @@ class CfzhSpider(scrapy.Spider):
             yield from self.next_frontier_requests()
             return
 
-        reply_item["_frontier_post_id"] = (
-            response.meta.get("frontier_post_id") or reply_item["reply_id"]
-        )
-        reply_item["_http_status"] = response.status
-        yield reply_item
-
-        self.enqueue_comment_entries(
+        child_frontier = self.comment_frontier_records(
             response,
             root_post_id=str(reply_item["root_post_id"]),
             base_parent_id=str(reply_item["reply_id"]),
             base_depth=int(reply_item.get("depth") or 1),
         )
+        try:
+            save_reply_detail(
+                self.frontier_conn(),
+                ForumReply.model_validate(self.public_item_data(reply_item)),
+                child_frontier,
+                frontier_post_id=str(
+                    response.meta.get("frontier_post_id") or reply_item["reply_id"]
+                ),
+                http_status=response.status,
+                max_attempts=MAX_FRONTIER_ATTEMPTS,
+            )
+        except Exception as exc:  # noqa: BLE001
+            self.mark_response_failed(response, exc)
+            yield from self.next_frontier_requests()
+            return
+
+        self.update_comment_progress(len(child_frontier))
         yield from self.next_frontier_requests()
 
     def parse_post(self, response: scrapy.http.Response):
         yield from self.parse_root_post(response)
 
-    def enqueue_comment_entries(
+    def comment_frontier_records(
         self,
         response: scrapy.http.Response,
         *,
         root_post_id: str,
         base_parent_id: str,
         base_depth: int,
-    ) -> None:
-        for forum_order, entry in enumerate(
-            extract_comment_entries(
-                response,
-                root_post_id=root_post_id,
-                base_parent_id=base_parent_id,
-                base_depth=base_depth,
-            ),
-            start=1,
-        ):
-            self.enqueue_frontier_entry(entry, forum_order=forum_order)
+    ) -> list[FrontierRecord]:
+        entries = extract_comment_entries(
+            response,
+            root_post_id=root_post_id,
+            base_parent_id=base_parent_id,
+            base_depth=base_depth,
+        )
+        return [
+            self.frontier_record_from_entry(entry, forum_order=forum_order)
+            for forum_order, entry in enumerate(entries, start=1)
+        ]
 
     def enqueue_frontier_entry(
         self,
@@ -212,6 +250,7 @@ class CfzhSpider(scrapy.Spider):
             if row is None:
                 return
             self.scheduled_detail_requests += 1
+            self.update_progress()
             yield self.frontier_request(row)
 
     def can_schedule_detail_request(self) -> bool:
@@ -255,11 +294,18 @@ class CfzhSpider(scrapy.Spider):
         if post_id is None:
             return
         response = getattr(getattr(failure, "value", None), "response", None)
+        error = failure.getErrorMessage()
         mark_frontier_failed(
             self.frontier_conn(),
             str(post_id),
             http_status=getattr(response, "status", None),
-            error=failure.getErrorMessage(),
+            error=error,
+        )
+        self.log_frontier_failure(
+            request.meta,
+            str(post_id),
+            http_status=getattr(response, "status", None),
+            error=error,
         )
 
     def mark_response_failed(self, response: scrapy.http.Response, exc: Exception) -> None:
@@ -272,12 +318,76 @@ class CfzhSpider(scrapy.Spider):
             http_status=response.status,
             error=str(exc),
         )
+        self.log_frontier_failure(
+            response.meta,
+            str(post_id),
+            http_status=response.status,
+            error=str(exc),
+        )
+
+    def update_comment_progress(self, reply_count: int) -> None:
+        if reply_count == 0:
+            return
+        self.update_progress()
+
+    def log_frontier_failure(
+        self,
+        meta: dict[str, Any],
+        post_id: str,
+        *,
+        http_status: int | None,
+        error: str,
+    ) -> None:
+        get_crawl_progress_reporter().clear()
+        self.logger.warning(
+            "CFZH failed %s id=%s status=%s error=%s; %s",
+            self.record_type_from_meta(meta),
+            post_id,
+            http_status if http_status is not None else "unknown",
+            error,
+            format_crawl_progress(fetch_crawl_progress(self.frontier_conn())),
+        )
+        self.update_progress()
+
+    def update_progress(self) -> None:
+        mode = self.progress_mode()
+        reporter = get_crawl_progress_reporter(mode=mode)
+        reporter.update_progress(
+            fetch_crawl_progress(self.frontier_conn()),
+            scheduled=self.scheduled_detail_requests,
+            max_requests=self.max_requests,
+        )
+
+    def progress_mode(self) -> str | None:
+        settings = getattr(getattr(self, "crawler", None), "settings", None)
+        if settings is None:
+            return os.getenv("WXC_PROGRESS")
+        return settings.get("WXC_PROGRESS", os.getenv("WXC_PROGRESS"))
+
+    def elapsed_time_text(self) -> str:
+        stats = getattr(getattr(self, "crawler", None), "stats", None)
+        elapsed = stats.get_value("elapsed_time_seconds") if stats is not None else None
+        if isinstance(elapsed, (int, float)):
+            return f"{elapsed:.1f}s"
+        return "unknown"
+
+    @staticmethod
+    def record_type_from_meta(meta: dict[str, Any]) -> str:
+        return "reply" if meta.get("reply_id") else "post"
 
     @staticmethod
     def optional_positive_int(value: str | int | None) -> int | None:
         if value in (None, "", "0"):
             return None
         return max(1, int(value))
+
+    @staticmethod
+    def public_item_data(item: dict[str, Any]) -> dict[str, Any]:
+        return {
+            key: value
+            for key, value in item.items()
+            if key != "item_type" and not key.startswith("_")
+        }
 
     def parse(self, response: scrapy.http.Response):
         if post_id_from_url(response.url):

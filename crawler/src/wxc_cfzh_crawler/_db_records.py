@@ -1,12 +1,19 @@
 from __future__ import annotations
 
 import sqlite3
+from collections.abc import Iterable
 
+from wxc_cfzh_crawler._db_frontier import mark_frontier_done, upsert_frontier_entry
 from wxc_cfzh_crawler._db_time import dt_to_text
-from wxc_cfzh_crawler.models import ForumPost, ForumReply
+from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
 
 
-def upsert_post(conn: sqlite3.Connection, post: ForumPost) -> None:
+def upsert_post(
+    conn: sqlite3.Connection,
+    post: ForumPost,
+    *,
+    commit: bool = True,
+) -> None:
     conn.execute(
         """
         INSERT INTO posts (
@@ -46,10 +53,16 @@ def upsert_post(conn: sqlite3.Connection, post: ForumPost) -> None:
             post.crawled_at.isoformat(),
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
 
 
-def upsert_reply(conn: sqlite3.Connection, reply: ForumReply) -> None:
+def upsert_reply(
+    conn: sqlite3.Connection,
+    reply: ForumReply,
+    *,
+    commit: bool = True,
+) -> None:
     conn.execute(
         """
         INSERT INTO replies (
@@ -96,4 +109,57 @@ def upsert_reply(conn: sqlite3.Connection, reply: ForumReply) -> None:
             reply.crawled_at.isoformat(),
         ),
     )
-    conn.commit()
+    if commit:
+        conn.commit()
+
+
+def save_post_detail(
+    conn: sqlite3.Connection,
+    post: ForumPost,
+    child_frontier: Iterable[FrontierRecord],
+    *,
+    frontier_post_id: str,
+    http_status: int | None = None,
+    max_attempts: int = 3,
+) -> None:
+    with conn:
+        upsert_post(conn, post, commit=False)
+        for entry in child_frontier:
+            upsert_frontier_entry(
+                conn,
+                entry,
+                max_attempts=max_attempts,
+                commit=False,
+            )
+        mark_frontier_done(
+            conn,
+            frontier_post_id,
+            http_status=http_status,
+            commit=False,
+        )
+
+
+def save_reply_detail(
+    conn: sqlite3.Connection,
+    reply: ForumReply,
+    child_frontier: Iterable[FrontierRecord],
+    *,
+    frontier_post_id: str,
+    http_status: int | None = None,
+    max_attempts: int = 3,
+) -> None:
+    with conn:
+        upsert_reply(conn, reply, commit=False)
+        for entry in child_frontier:
+            upsert_frontier_entry(
+                conn,
+                entry,
+                max_attempts=max_attempts,
+                commit=False,
+            )
+        mark_frontier_done(
+            conn,
+            frontier_post_id,
+            http_status=http_status,
+            commit=False,
+        )

@@ -42,11 +42,29 @@ from wxc_cfzh_crawler._db_frontier import (
 from wxc_cfzh_crawler._db_frontier import (
     upsert_frontier_entry as upsert_frontier_entry,
 )
+from wxc_cfzh_crawler._db_progress import (
+    CrawlProgress as CrawlProgress,
+)
+from wxc_cfzh_crawler._db_progress import (
+    fetch_crawl_progress as fetch_crawl_progress,
+)
+from wxc_cfzh_crawler._db_progress import (
+    format_crawl_progress as format_crawl_progress,
+)
+from wxc_cfzh_crawler._db_progress import (
+    format_live_crawl_progress as format_live_crawl_progress,
+)
 from wxc_cfzh_crawler._db_reads import (
     fetch_replies as fetch_replies,
 )
 from wxc_cfzh_crawler._db_reads import (
     fetch_root_posts as fetch_root_posts,
+)
+from wxc_cfzh_crawler._db_records import (
+    save_post_detail as save_post_detail,
+)
+from wxc_cfzh_crawler._db_records import (
+    save_reply_detail as save_reply_detail,
 )
 from wxc_cfzh_crawler._db_records import (
     upsert_post as upsert_post,
@@ -65,18 +83,24 @@ __all__ = [
     "FRONTIER_SELECT_COLUMNS",
     "POST_SELECT_COLUMNS",
     "REPLY_SELECT_COLUMNS",
+    "CrawlProgress",
     "backfill_frontier",
     "claim_next_frontier",
     "connect",
     "current_root_reply_count",
     "dt_to_text",
     "fetch_frontier_row",
+    "fetch_crawl_progress",
     "fetch_replies",
     "fetch_root_posts",
+    "format_crawl_progress",
+    "format_live_crawl_progress",
     "init_db",
     "mark_frontier_done",
     "mark_frontier_failed",
     "reset_in_progress_frontier",
+    "save_post_detail",
+    "save_reply_detail",
     "sqlite_path_from_url",
     "upsert_frontier_entry",
     "upsert_post",

@@ -39,10 +39,6 @@ DEFAULT_REQUEST_HEADERS = {
     "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
 }
 
-ITEM_PIPELINES = {
-    "wxc_cfzh_crawler.pipelines.SQLitePipeline": 300,
-}
-
 TELNETCONSOLE_ENABLED = False
 
 WXC_DATA_DIR = str(default_data_dir())
@@ -51,3 +47,4 @@ DATABASE_URL = default_database_url()
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
 LOG_LEVEL = os.getenv("WXC_LOG_LEVEL", "INFO")
+WXC_PROGRESS = os.getenv("WXC_PROGRESS", "live")
