@@ -47,7 +47,8 @@ uv run wxc export --help
 uv run wxc inspect --help
 ```
 
-`wxc inspect` serves the built frontend through FastAPI. If `inspector/frontend/dist` is missing, it runs the frontend build first.
+`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
+changes, rebuilds `inspector/frontend`, then serves the UI and API through FastAPI.
 
 Low-level Scrapy usage is still available from the crawler project:
 

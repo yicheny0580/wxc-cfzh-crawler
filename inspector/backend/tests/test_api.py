@@ -74,7 +74,10 @@ def db_path(tmp_path: Path) -> Path:
                 "2026-04-25T09:00:00",
                 None,
                 "Apple and market structure notes.",
-                "<p>Apple and market structure notes.</p>",
+                (
+                    "<div id=\"msgbodyContent\"><p>Apple<br>and market structure notes.</p>"
+                    "<p><img src=\"/upload/alpha.jpeg\" alt=\"Alpha chart\"></p></div>"
+                ),
                 34,
                 10,
                 2,
@@ -89,8 +92,8 @@ def db_path(tmp_path: Path) -> Path:
                 None,
                 "2026-04-25T09:30:00",
                 None,
-                "Semiconductor rotation.",
-                "<p>Semiconductor rotation.</p>",
+                None,
+                "<div id=\"msgbodyContent\"><p><img src=\"/upload/beta.jpeg\"></p></div>",
                 23,
                 20,
                 1,
@@ -120,7 +123,7 @@ def db_path(tmp_path: Path) -> Path:
                 "2026-04-25T09:05:00",
                 None,
                 "Root reply",
-                "<p>Root reply</p>",
+                "<p>Root reply<img src=\"/upload/reply.jpeg\" alt=\"reply chart\"></p>",
                 10,
                 None,
                 1,
@@ -230,8 +233,22 @@ async def test_post_detail_returns_recursive_replies(client: httpx.AsyncClient) 
     assert response.status_code == 200
     payload = response.json()
     assert payload["post_id"] == "100"
+    assert "<br>" in payload["body_html"]
+    assert "/upload/alpha.jpeg" in payload["body_html"]
     assert payload["replies"][0]["reply_id"] == "101"
+    assert "/upload/reply.jpeg" in payload["replies"][0]["body_html"]
     assert payload["replies"][0]["replies"][0]["reply_id"] == "102"
+
+
+@pytest.mark.anyio
+async def test_post_detail_returns_image_only_html(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/posts/200")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["post_id"] == "200"
+    assert payload["body_text"] is None
+    assert "/upload/beta.jpeg" in payload["body_html"]
 
 
 @pytest.mark.anyio

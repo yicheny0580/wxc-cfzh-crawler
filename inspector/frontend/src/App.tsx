@@ -9,6 +9,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getPosts, getSummary } from "./api";
+import { sanitizeBodyHtml } from "./bodyHtml";
 import type {
   AuthorSummary,
   HealthResponse,
@@ -473,10 +474,12 @@ function ReaderPane({
         </div>
       </div>
 
-      <div className="reader-body px-4 py-5 sm:px-6">
-        <div className="whitespace-pre-wrap text-base leading-7 text-stone-900">
-          {post.body_text || "No body text."}
-        </div>
+      <div className="px-4 py-5 sm:px-6">
+        <BodyContent
+          html={post.body_html}
+          text={post.body_text}
+          className="text-base leading-7 text-stone-900"
+        />
       </div>
 
       <div className="border-t border-stone-300 px-4 py-4 sm:px-6">
@@ -537,10 +540,12 @@ function ReplyNode({ reply }: { reply: ReplyDetail }) {
         {reply.title ? (
           <div className="mt-2 text-sm font-medium text-stone-800">{reply.title}</div>
         ) : null}
-        {reply.body_text ? (
-          <div className="reader-body mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-800">
-            {reply.body_text}
-          </div>
+        {reply.body_html || reply.body_text ? (
+          <BodyContent
+            html={reply.body_html}
+            text={reply.body_text}
+            className="mt-2 text-sm leading-6 text-stone-800"
+          />
         ) : !reply.title ? (
           <div className="mt-2 text-sm text-stone-500">No body text.</div>
         ) : null}
@@ -554,6 +559,34 @@ function ReplyNode({ reply }: { reply: ReplyDetail }) {
       ) : null}
     </div>
   );
+}
+
+function BodyContent({
+  html,
+  text,
+  className = ""
+}: {
+  html: string | null;
+  text: string | null;
+  className?: string;
+}) {
+  const sanitizedHtml = useMemo(() => sanitizeBodyHtml(html), [html]);
+  const classes = `reader-body ${className}`.trim();
+
+  if (sanitizedHtml) {
+    return (
+      <div
+        className={`reader-body-html ${classes}`}
+        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+      />
+    );
+  }
+
+  if (text) {
+    return <div className={`whitespace-pre-wrap ${classes}`}>{text}</div>;
+  }
+
+  return <div className="text-sm text-stone-500">No body text.</div>;
 }
 
 function StateBlock({ text }: { text: string }) {

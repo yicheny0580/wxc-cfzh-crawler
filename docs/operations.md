@@ -37,9 +37,10 @@ uv run wxc inspect
 uv run wxc inspect --db data/crawler.sqlite3 --host 127.0.0.1 --port 8765
 ```
 
-`wxc inspect` builds `inspector/frontend` if the built UI is missing, then serves the UI and API from FastAPI.
+`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
+changes, rebuilds `inspector/frontend`, then serves the UI and API from FastAPI.
 
-Backend-only startup is available for troubleshooting:
+Backend-only startup is available for troubleshooting and skips the frontend refresh/build:
 
 ```bash
 uv run wxc inspect --skip-ui-build

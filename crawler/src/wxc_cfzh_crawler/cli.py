@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -8,6 +10,8 @@ from pathlib import Path
 from wxc_cfzh_crawler.paths import default_database_url, resolve_repo_root
 
 DEFAULT_START_URL = "https://bbs.wenxuecity.com/cfzh/"
+FRONTEND_DEPENDENCY_MANIFESTS = ("package.json", "package-lock.json")
+FRONTEND_SYNC_MARKER = ".wxc-inspect-sync.json"
 
 
 def positive_int(value: str) -> int:
@@ -90,7 +94,7 @@ def build_parser() -> argparse.ArgumentParser:
     inspect.add_argument(
         "--skip-ui-build",
         action="store_true",
-        help="Do not build inspector/frontend before starting the backend.",
+        help="Do not refresh or build inspector/frontend before starting the backend.",
     )
     inspect.set_defaults(func=run_inspect)
 
@@ -133,27 +137,84 @@ def run_export(args: argparse.Namespace) -> int:
     return 0
 
 
-def ensure_frontend_built(repo_root: Path, *, skip_build: bool) -> None:
-    frontend_dir = repo_root / "inspector" / "frontend"
-    dist_index = frontend_dir / "dist" / "index.html"
-    if dist_index.exists() or skip_build:
-        return
+def frontend_manifest_hash(frontend_dir: Path) -> str:
+    digest = hashlib.sha256()
+    for manifest in FRONTEND_DEPENDENCY_MANIFESTS:
+        manifest_path = frontend_dir / manifest
+        digest.update(manifest.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(manifest_path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def frontend_sync_marker_path(frontend_dir: Path) -> Path:
+    return frontend_dir / "node_modules" / FRONTEND_SYNC_MARKER
+
+
+def frontend_dependencies_are_current(frontend_dir: Path, manifest_hash: str) -> bool:
+    marker_path = frontend_sync_marker_path(frontend_dir)
+    if not marker_path.parent.is_dir():
+        return False
 
     try:
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+
+    return marker.get("manifest_hash") == manifest_hash
+
+
+def write_frontend_sync_marker(frontend_dir: Path, manifest_hash: str) -> None:
+    marker_path = frontend_sync_marker_path(frontend_dir)
+    marker_path.parent.mkdir(parents=True, exist_ok=True)
+    marker_path.write_text(
+        json.dumps({"manifest_hash": manifest_hash}, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+
+def run_frontend_npm(frontend_dir: Path, npm_args: list[str], *, failure_message: str) -> None:
+    try:
         subprocess.run(
-            ["npm", "--prefix", str(frontend_dir), "run", "build"],
+            ["npm", "--prefix", str(frontend_dir), *npm_args],
             check=True,
         )
     except FileNotFoundError as exc:
         raise SystemExit(
-            "Could not build the inspector UI because npm was not found. "
+            "Could not refresh the inspector UI because npm was not found. "
             "Install Node/npm or run `wxc inspect --skip-ui-build` for API-only startup."
         ) from exc
     except subprocess.CalledProcessError as exc:
-        raise SystemExit(
-            "Inspector UI build failed. Run `npm --prefix inspector/frontend install` "
-            "if dependencies are missing, then retry `wxc inspect`."
-        ) from exc
+        raise SystemExit(failure_message) from exc
+
+
+def ensure_frontend_ready(repo_root: Path, *, skip_build: bool) -> None:
+    frontend_dir = repo_root / "inspector" / "frontend"
+    if skip_build:
+        return
+
+    manifest_hash = frontend_manifest_hash(frontend_dir)
+    if not frontend_dependencies_are_current(frontend_dir, manifest_hash):
+        run_frontend_npm(
+            frontend_dir,
+            ["ci"],
+            failure_message=(
+                "Inspector UI dependency refresh failed. Run "
+                "`npm --prefix inspector/frontend ci` to inspect the npm error, "
+                "then retry `wxc inspect`."
+            ),
+        )
+        write_frontend_sync_marker(frontend_dir, manifest_hash)
+
+    run_frontend_npm(
+        frontend_dir,
+        ["run", "build"],
+        failure_message=(
+            "Inspector UI build failed. Run `npm --prefix inspector/frontend run build` "
+            "to inspect the frontend error, then retry `wxc inspect`."
+        ),
+    )
 
 
 def run_inspect(args: argparse.Namespace) -> int:
@@ -161,7 +222,7 @@ def run_inspect(args: argparse.Namespace) -> int:
     if args.db:
         os.environ["WXC_INSPECT_DB"] = str(Path(args.db).expanduser().resolve())
 
-    ensure_frontend_built(repo_root, skip_build=args.skip_ui_build)
+    ensure_frontend_ready(repo_root, skip_build=args.skip_ui_build)
 
     try:
         import app.main  # noqa: F401

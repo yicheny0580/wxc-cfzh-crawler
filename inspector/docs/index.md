@@ -28,7 +28,8 @@ uv run wxc inspect --host 127.0.0.1 --port 8765
 uv run wxc inspect --skip-ui-build
 ```
 
-`wxc inspect` serves the built frontend through FastAPI. If `../frontend/dist/index.html` is missing, it runs `npm --prefix inspector/frontend run build` first.
+`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
+changes, rebuilds `../frontend`, then serves the UI and API through FastAPI.
 
 ## API
 
