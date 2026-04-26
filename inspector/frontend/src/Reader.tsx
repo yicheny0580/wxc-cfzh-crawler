@@ -42,12 +42,14 @@ export function ReaderPane({
   post,
   focusRequest,
   loading,
+  refreshing = false,
   error,
   empty
 }: {
   post: PostDetail | null;
   focusRequest: FocusRequest;
   loading: boolean;
+  refreshing?: boolean;
   error: string | null;
   empty: boolean;
 }) {
@@ -124,7 +126,7 @@ export function ReaderPane({
     return <StateBlock text="Loading post..." />;
   }
 
-  if (error) {
+  if (error && !post) {
     return <StateBlock text={error} />;
   }
 
@@ -133,7 +135,12 @@ export function ReaderPane({
   }
 
   return (
-    <article ref={articleRef} className="min-w-0">
+    <article ref={articleRef} className="min-w-0" aria-busy={refreshing}>
+      {error ? (
+        <div className="border-b border-red-200 bg-red-50 px-4 py-2 text-sm text-red-800 sm:px-5">
+          {error}
+        </div>
+      ) : null}
       <div className="border-b border-stone-300 bg-white px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">

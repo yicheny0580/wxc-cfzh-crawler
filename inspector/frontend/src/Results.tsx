@@ -9,11 +9,13 @@ export const PAGE_SIZE = 25;
 export function ResultList({
   results,
   loading,
+  refreshing = false,
   selectedResultKey,
   onSelect
 }: {
   results: ResultItem[];
   loading: boolean;
+  refreshing?: boolean;
   selectedResultKey: string | null;
   onSelect: (result: ResultItem) => void;
 }) {
@@ -26,7 +28,7 @@ export function ResultList({
   }
 
   return (
-    <div className="scrollbar-stable min-h-0 flex-1 overflow-y-auto">
+    <div className="scrollbar-stable min-h-0 flex-1 overflow-y-auto" aria-busy={refreshing}>
       {results.map((result) => {
         const selected = resultKey(result) === selectedResultKey;
         const isReply = result.record_type === "reply";

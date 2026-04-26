@@ -1,5 +1,5 @@
 import { Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { CrawlControls } from "./CrawlControls";
@@ -8,6 +8,11 @@ import { PAGE_SIZE, Pagination, ResultList } from "./Results";
 import { ReaderPane, type FocusRequest } from "./Reader";
 import { ErrorBanner, SummaryStrip } from "./Summary";
 import { resultKey } from "./format";
+import {
+  readResultTypeFilterPreference,
+  type ResultTypeFilterPreference,
+  writeResultTypeFilterPreference
+} from "./resultTypePreference";
 import { useCrawlStatus } from "./useCrawlStatus";
 import type {
   AuthorSummary,
@@ -17,66 +22,6 @@ import type {
   ResultListResponse,
   SummaryResponse
 } from "./types";
-
-interface ResultTypeFilterPreference {
-  includePosts: boolean;
-  includeReplies: boolean;
-}
-
-const RESULT_TYPE_FILTER_STORAGE_KEY = "cfzh-inspector.result-type-filter.v1";
-const DEFAULT_RESULT_TYPE_FILTER: ResultTypeFilterPreference = {
-  includePosts: true,
-  includeReplies: false
-};
-
-function normalizeResultTypeFilterPreference(value: unknown): ResultTypeFilterPreference | null {
-  if (!value || typeof value !== "object") {
-    return null;
-  }
-
-  const candidate = value as Partial<ResultTypeFilterPreference>;
-  if (
-    typeof candidate.includePosts !== "boolean" ||
-    typeof candidate.includeReplies !== "boolean" ||
-    (!candidate.includePosts && !candidate.includeReplies)
-  ) {
-    return null;
-  }
-
-  return {
-    includePosts: candidate.includePosts,
-    includeReplies: candidate.includeReplies
-  };
-}
-
-function readResultTypeFilterPreference(): ResultTypeFilterPreference {
-  if (typeof window === "undefined") {
-    return DEFAULT_RESULT_TYPE_FILTER;
-  }
-
-  try {
-    const storedPreference = window.localStorage.getItem(RESULT_TYPE_FILTER_STORAGE_KEY);
-    if (!storedPreference) {
-      return DEFAULT_RESULT_TYPE_FILTER;
-    }
-    const parsedPreference = normalizeResultTypeFilterPreference(JSON.parse(storedPreference));
-    return parsedPreference ?? DEFAULT_RESULT_TYPE_FILTER;
-  } catch {
-    return DEFAULT_RESULT_TYPE_FILTER;
-  }
-}
-
-function writeResultTypeFilterPreference(preference: ResultTypeFilterPreference) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  try {
-    window.localStorage.setItem(RESULT_TYPE_FILTER_STORAGE_KEY, JSON.stringify(preference));
-  } catch {
-    return;
-  }
-}
 
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
@@ -100,22 +45,31 @@ function App() {
   const [offset, setOffset] = useState(0);
   const [reloadToken, setReloadToken] = useState(0);
   const [bootLoading, setBootLoading] = useState(true);
+  const [refreshingAfterCrawl, setRefreshingAfterCrawl] = useState(false);
+  const [overviewRefreshingAfterCrawl, setOverviewRefreshingAfterCrawl] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const refreshingAfterCrawlRef = useRef(false);
+  const selectedPostRef = useRef<PostDetail | null>(null);
+  selectedPostRef.current = selectedPost;
 
   const { includePosts, includeReplies } = resultTypeFilter;
   const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
+  const showResultsLoading = resultsLoading && (!results || !refreshingAfterCrawl);
+  const showDetailLoading =
+    detailLoading &&
+    (!selectedPost || !refreshingAfterCrawl || selectedPost.post_id !== selectedPostId);
   const {
     actionLoading: crawlActionLoading,
     error: crawlError,
     start: handleStartCrawl,
     status: crawlStatus,
     stop: handleStopCrawl
-  } = useCrawlStatus(reloadAll);
+  } = useCrawlStatus(refreshAfterCrawl);
 
   async function refreshOverview() {
     setError(null);
@@ -167,6 +121,7 @@ function App() {
     let active = true;
     setResultsLoading(true);
     setError(null);
+    const preserveCurrentResults = refreshingAfterCrawlRef.current;
 
     if (!hasResultScope) {
       setResults({ items: [], total: 0, limit: PAGE_SIZE, offset });
@@ -192,7 +147,9 @@ function App() {
       .catch((err: unknown) => {
         if (active) {
           setError(err instanceof Error ? err.message : "Failed to load results.");
-          setResults(null);
+          if (!preserveCurrentResults) {
+            setResults(null);
+          }
         }
       })
       .finally(() => {
@@ -233,6 +190,8 @@ function App() {
     let active = true;
     setDetailLoading(true);
     setDetailError(null);
+    const preserveCurrentPost =
+      refreshingAfterCrawlRef.current && selectedPostRef.current?.post_id === selectedPostId;
     getPost(selectedPostId)
       .then((payload) => {
         if (active) {
@@ -242,7 +201,9 @@ function App() {
       .catch((err: unknown) => {
         if (active) {
           setDetailError(err instanceof Error ? err.message : "Failed to load post.");
-          setSelectedPost(null);
+          if (!preserveCurrentPost) {
+            setSelectedPost(null);
+          }
         }
       })
       .finally(() => {
@@ -285,16 +246,29 @@ function App() {
     });
   };
 
-  function reloadAll() {
-    setBootLoading(true);
+  function refreshAfterCrawl() {
+    refreshingAfterCrawlRef.current = true;
+    setRefreshingAfterCrawl(true);
+    setOverviewRefreshingAfterCrawl(true);
     refreshOverview()
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Failed to refresh inspector data.");
       })
-      .finally(() => setBootLoading(false));
-    setOffset(0);
+      .finally(() => setOverviewRefreshingAfterCrawl(false));
     setReloadToken((current) => current + 1);
   }
+
+  useEffect(() => {
+    if (
+      refreshingAfterCrawl &&
+      !overviewRefreshingAfterCrawl &&
+      !resultsLoading &&
+      !detailLoading
+    ) {
+      refreshingAfterCrawlRef.current = false;
+      setRefreshingAfterCrawl(false);
+    }
+  }, [detailLoading, overviewRefreshingAfterCrawl, refreshingAfterCrawl, resultsLoading]);
 
   return (
     <div className="min-h-screen bg-[#f6f3ed] text-stone-900">
@@ -356,7 +330,8 @@ function App() {
           </div>
           <ResultList
             results={results?.items ?? []}
-            loading={resultsLoading}
+            loading={showResultsLoading}
+            refreshing={refreshingAfterCrawl && resultsLoading && Boolean(results)}
             selectedResultKey={selectedResultKey}
             onSelect={selectResult}
           />
@@ -373,7 +348,8 @@ function App() {
           <ReaderPane
             post={selectedPost}
             focusRequest={focusRequest}
-            loading={detailLoading}
+            loading={showDetailLoading}
+            refreshing={refreshingAfterCrawl && detailLoading && Boolean(selectedPost)}
             error={detailError}
             empty={!selectedPostId && !resultsLoading}
           />
