@@ -1,4 +1,5 @@
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -95,6 +96,19 @@ function findReplyPath(replies: ReplyDetail[], replyId: string): string[] | null
   return null;
 }
 
+function shouldIgnoreReplyToggle(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return true;
+  }
+  return Boolean(target.closest("a, button, input, select, textarea, label"));
+}
+
+interface FocusRequest {
+  id: number;
+  postId: string | null;
+  replyId: string | null;
+}
+
 function App() {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -103,8 +117,11 @@ function App() {
   const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
-  const [targetReplyId, setTargetReplyId] = useState<string | null>(null);
-  const [focusRequestId, setFocusRequestId] = useState(0);
+  const [focusRequest, setFocusRequest] = useState<FocusRequest>({
+    id: 0,
+    postId: null,
+    replyId: null
+  });
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [author, setAuthor] = useState("");
@@ -215,7 +232,6 @@ function App() {
       setSelectedResultKey(null);
       setSelectedPostId(null);
       setSelectedPost(null);
-      setTargetReplyId(null);
       return;
     }
 
@@ -223,7 +239,6 @@ function App() {
       const first = results.items[0];
       setSelectedResultKey(resultKey(first));
       setSelectedPostId(first.root_post_id);
-      setTargetReplyId(first.record_type === "reply" ? first.reply_id : null);
     }
   }, [results, selectedResultKey]);
 
@@ -259,10 +274,14 @@ function App() {
   }, [selectedPostId]);
 
   const selectResult = (result: ResultItem) => {
+    const replyId = result.record_type === "reply" ? result.reply_id : null;
     setSelectedResultKey(resultKey(result));
     setSelectedPostId(result.root_post_id);
-    setTargetReplyId(result.record_type === "reply" ? result.reply_id : null);
-    setFocusRequestId((current) => current + 1);
+    setFocusRequest((current) => ({
+      id: current.id + 1,
+      postId: result.root_post_id,
+      replyId
+    }));
   };
 
   const updateIncludePosts = (checked: boolean) => {
@@ -290,7 +309,7 @@ function App() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f6f3ed] text-stone-900">
+    <div className="min-h-screen bg-[#f6f3ed] text-stone-900">
       <header className="shrink-0 border-b border-stone-300 bg-[#fbfaf7]">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-2 px-3 py-3 sm:px-4 lg:px-6">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
@@ -317,8 +336,8 @@ function App() {
         </div>
       </header>
 
-      <main className="mx-auto grid w-full max-w-[1800px] flex-1 gap-3 px-3 py-3 sm:px-4 lg:min-h-0 lg:grid-cols-[360px_minmax(0,1fr)] lg:overflow-hidden lg:px-6">
-        <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:min-h-0">
+      <main className="mx-auto grid w-full max-w-[1800px] gap-3 px-3 py-3 sm:px-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-6">
+        <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:min-h-0">
           <div className="shrink-0 border-b border-stone-300 p-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
@@ -340,46 +359,13 @@ function App() {
               ) : null}
             </div>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] gap-2">
-              <select
-                value={author}
-                onChange={(event) => setAuthor(event.target.value)}
-                className="h-9 min-w-0 rounded-md border border-stone-300 bg-white px-2 text-sm text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-              >
-                <option value="">All authors</option>
-                {authors.map((item) => (
-                  <option key={item.name} value={item.name}>
-                    {authorLabel(item)}
-                  </option>
-                ))}
-              </select>
-              <div className="flex h-9 overflow-hidden rounded-md border border-stone-300 bg-white">
-                <label
-                  className={`flex cursor-pointer items-center px-3 text-sm font-medium transition ${
-                    includePosts ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={includePosts}
-                    onChange={(event) => updateIncludePosts(event.target.checked)}
-                    className="sr-only"
-                  />
-                  Posts
-                </label>
-                <label
-                  className={`flex cursor-pointer items-center border-l border-stone-300 px-3 text-sm font-medium transition ${
-                    includeReplies ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={includeReplies}
-                    onChange={(event) => updateIncludeReplies(event.target.checked)}
-                    className="sr-only"
-                  />
-                  Replies
-                </label>
-              </div>
+              <AuthorFilter authors={authors} value={author} onChange={setAuthor} />
+              <TypeFilter
+                includePosts={includePosts}
+                includeReplies={includeReplies}
+                onIncludePostsChange={updateIncludePosts}
+                onIncludeRepliesChange={updateIncludeReplies}
+              />
             </div>
           </div>
           <ResultList
@@ -397,11 +383,10 @@ function App() {
           />
         </aside>
 
-        <section className="flex min-h-[520px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:min-h-0">
+        <section className="min-w-0 border border-stone-300 bg-[#fbfaf7]">
           <ReaderPane
             post={selectedPost}
-            targetReplyId={targetReplyId}
-            focusRequestId={focusRequestId}
+            focusRequest={focusRequest}
             loading={detailLoading}
             error={detailError}
             empty={!selectedPostId && !resultsLoading}
@@ -445,6 +430,205 @@ function ErrorBanner({ message }: { message: string }) {
     <div className="border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-900">
       {message}
     </div>
+  );
+}
+
+function AuthorFilter({
+  authors,
+  value,
+  onChange
+}: {
+  authors: AuthorSummary[];
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [filter, setFilter] = useState("");
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<number | null>(null);
+
+  const filteredAuthors = useMemo(() => {
+    const needle = filter.trim().toLowerCase();
+    const matches = needle
+      ? authors.filter((item) => item.name.toLowerCase().includes(needle))
+      : authors;
+    return matches.slice(0, 80);
+  }, [authors, filter]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current !== null) {
+        window.clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const clearCloseTimer = () => {
+    if (closeTimerRef.current !== null) {
+      window.clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const selectAuthor = (nextAuthor: string) => {
+    onChange(nextAuthor);
+    setFilter("");
+    setOpen(false);
+  };
+
+  const closeSoon = () => {
+    clearCloseTimer();
+    closeTimerRef.current = window.setTimeout(() => setOpen(false), 120);
+  };
+
+  const clearInput = () => {
+    if (filter) {
+      setFilter("");
+      setOpen(true);
+      return;
+    }
+    selectAuthor("");
+  };
+
+  return (
+    <div className="relative min-w-0">
+      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+      <input
+        value={filter}
+        onBlur={closeSoon}
+        onChange={(event) => {
+          setFilter(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => {
+          clearCloseTimer();
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+          }
+          if (event.key === "Enter" && filteredAuthors.length > 0) {
+            event.preventDefault();
+            selectAuthor(filteredAuthors[0].name);
+          }
+        }}
+        placeholder={value ? `Author: ${value}` : "Filter authors"}
+        className={`h-9 w-full rounded-md border border-stone-300 bg-white pl-8 pr-8 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 ${
+          value && !filter ? "placeholder:text-stone-900" : ""
+        }`}
+        aria-label="Filter authors"
+      />
+      {filter || value ? (
+        <button
+          type="button"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={clearInput}
+          className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+          title={filter ? "Clear author search" : "Clear author filter"}
+        >
+          <X className="h-4 w-4" />
+        </button>
+      ) : null}
+      {open ? (
+        <div
+          className="scrollbar-stable absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-md border border-stone-300 bg-white py-1 shadow-lg"
+          onMouseDown={(event) => event.preventDefault()}
+        >
+          <button
+            type="button"
+            onClick={() => selectAuthor("")}
+            className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-stone-50 ${
+              value ? "text-stone-700" : "bg-emerald-50 font-medium text-stone-950"
+            }`}
+          >
+            <span>All authors</span>
+            <span className="text-xs text-stone-500">{formatNumber(authors.length)}</span>
+          </button>
+          {filteredAuthors.length > 0 ? (
+            filteredAuthors.map((item) => (
+              <button
+                key={item.name}
+                type="button"
+                onClick={() => selectAuthor(item.name)}
+                className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition hover:bg-stone-50 ${
+                  value === item.name ? "bg-emerald-50 font-medium text-stone-950" : "text-stone-700"
+                }`}
+                title={authorLabel(item)}
+              >
+                <span className="min-w-0 truncate">{item.name}</span>
+                <span className="shrink-0 text-xs text-stone-500">
+                  {formatNumber(item.total)}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="px-3 py-3 text-sm text-stone-500">No matching authors.</div>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function TypeFilter({
+  includePosts,
+  includeReplies,
+  onIncludePostsChange,
+  onIncludeRepliesChange
+}: {
+  includePosts: boolean;
+  includeReplies: boolean;
+  onIncludePostsChange: (checked: boolean) => void;
+  onIncludeRepliesChange: (checked: boolean) => void;
+}) {
+  return (
+    <fieldset className="flex h-9 items-center gap-1 rounded-md border border-stone-300 bg-white px-2">
+      <legend className="sr-only">Result type</legend>
+      <span className="mr-1 text-xs font-medium uppercase text-stone-500">Type</span>
+      <TypeFilterOption
+        label="Posts"
+        checked={includePosts}
+        onChange={onIncludePostsChange}
+      />
+      <TypeFilterOption
+        label="Replies"
+        checked={includeReplies}
+        onChange={onIncludeRepliesChange}
+      />
+    </fieldset>
+  );
+}
+
+function TypeFilterOption({
+  label,
+  checked,
+  onChange
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={`flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-sm transition ${
+        checked ? "bg-stone-100 text-stone-950" : "text-stone-600 hover:bg-stone-50"
+      }`}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="sr-only"
+      />
+      <span
+        className={`inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm border ${
+          checked ? "border-emerald-700 bg-white text-emerald-700" : "border-stone-400 bg-white"
+        }`}
+      >
+        {checked ? <Check className="h-3 w-3" /> : null}
+      </span>
+      <span>{label}</span>
+    </label>
   );
 }
 
@@ -563,20 +747,19 @@ function Pagination({
 
 function ReaderPane({
   post,
-  targetReplyId,
-  focusRequestId,
+  focusRequest,
   loading,
   error,
   empty
 }: {
   post: PostDetail | null;
-  targetReplyId: string | null;
-  focusRequestId: number;
+  focusRequest: FocusRequest;
   loading: boolean;
   error: string | null;
   empty: boolean;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
+  const handledFocusRequestIdRef = useRef(0);
   const [highlightedReplyId, setHighlightedReplyId] = useState<string | null>(null);
   const [collapsedReplyIds, setCollapsedReplyIds] = useState<Set<string>>(() => new Set());
 
@@ -586,31 +769,46 @@ function ReaderPane({
 
   useEffect(() => {
     const article = articleRef.current;
-    if (!article || !post) {
+    if (
+      focusRequest.id === 0 ||
+      handledFocusRequestIdRef.current === focusRequest.id ||
+      !article ||
+      !post ||
+      post.post_id !== focusRequest.postId
+    ) {
       return;
     }
 
-    if (!targetReplyId) {
-      article.scrollTo({ top: 0 });
-      setHighlightedReplyId(null);
-      return;
+    if (!focusRequest.replyId) {
+      const handle = window.setTimeout(() => {
+        article.scrollIntoView({ block: "start" });
+        setHighlightedReplyId(null);
+        handledFocusRequestIdRef.current = focusRequest.id;
+      }, 0);
+      return () => window.clearTimeout(handle);
     }
 
-    const replyPath = findReplyPath(post.replies, targetReplyId);
+    const replyPath = findReplyPath(post.replies, focusRequest.replyId);
     if (replyPath) {
       setCollapsedReplyIds((current) => {
         const next = new Set(current);
         replyPath.forEach((replyId) => next.delete(replyId));
         return next;
       });
+    } else {
+      return;
     }
 
     const handle = window.setTimeout(() => {
       const target = Array.from(article.querySelectorAll<HTMLElement>("[data-reply-id]")).find(
-        (node) => node.dataset.replyId === targetReplyId
+        (node) => node.dataset.replyId === focusRequest.replyId
       );
-      target?.scrollIntoView({ block: "center" });
-      setHighlightedReplyId(targetReplyId);
+      if (!target) {
+        return;
+      }
+      target.scrollIntoView({ block: "center" });
+      setHighlightedReplyId(focusRequest.replyId);
+      handledFocusRequestIdRef.current = focusRequest.id;
     }, 0);
     const clearHighlight = window.setTimeout(() => setHighlightedReplyId(null), 2600);
 
@@ -618,7 +816,7 @@ function ReaderPane({
       window.clearTimeout(handle);
       window.clearTimeout(clearHighlight);
     };
-  }, [focusRequestId, post, targetReplyId]);
+  }, [focusRequest, post]);
 
   const toggleReply = (replyId: string) => {
     setCollapsedReplyIds((current) => {
@@ -647,7 +845,7 @@ function ReaderPane({
   return (
     <article
       ref={articleRef}
-      className="scrollbar-stable h-full min-h-0 overflow-y-auto"
+      className="min-w-0"
     >
       <div className="border-b border-stone-300 bg-white px-4 py-3 sm:px-5">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
@@ -736,15 +934,28 @@ function ReplyNode({
   return (
     <div className="border-l-2 border-emerald-700 bg-white pl-3" data-reply-id={reply.reply_id}>
       <div
-        className={`border px-3 py-3 transition-colors ${
-          highlighted ? "border-emerald-500 bg-emerald-50" : "border-stone-200"
+        onClick={(event) => {
+          if (shouldIgnoreReplyToggle(event.target) || window.getSelection()?.toString()) {
+            return;
+          }
+          onToggle(reply.reply_id);
+        }}
+        className={`cursor-pointer border px-3 py-3 transition-colors ${
+          highlighted
+            ? "border-emerald-500 bg-emerald-50 hover:bg-emerald-100"
+            : collapsed
+              ? "border-stone-300 bg-stone-50 hover:bg-stone-100"
+              : "border-stone-200 hover:border-stone-300 hover:bg-stone-50"
         }`}
       >
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-2 text-sm">
             <button
               type="button"
-              onClick={() => onToggle(reply.reply_id)}
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggle(reply.reply_id);
+              }}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-emerald-600"
               title={collapsed ? "Expand reply" : "Collapse reply"}
               aria-label={collapsed ? "Expand reply" : "Collapse reply"}
@@ -771,6 +982,7 @@ function ReplyNode({
             href={reply.url}
             target="_blank"
             rel="noreferrer"
+            onClick={(event) => event.stopPropagation()}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-900"
             title="Open reply"
           >
