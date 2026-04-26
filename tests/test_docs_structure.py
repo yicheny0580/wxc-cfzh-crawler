@@ -87,6 +87,22 @@ def test_agent_workflow_requires_stable_doc_promotion() -> None:
     assert "stable doc" in content
 
 
+def test_agent_workflow_requires_review_before_commit() -> None:
+    content = AGENT_WORKFLOW_DOC.read_text(encoding="utf-8").lower()
+
+    assert "approval to implement is not approval to commit" in content
+    assert "stop for human review" in content
+    assert "explicit good-to-commit signal" in content
+
+
+def test_agent_workflow_requires_active_exec_plan_for_substantial_work() -> None:
+    content = AGENT_WORKFLOW_DOC.read_text(encoding="utf-8").lower()
+
+    assert "docs/exec-plans/active/" in content
+    assert "substantial" in content
+    assert "before continuing implementation" in content
+
+
 def test_doc_map_relative_links_point_to_files() -> None:
     bad_links: list[str] = []
     for path in DOCS:

@@ -20,8 +20,10 @@ linked from here.
   repo-tracked files.
 - The plan must identify intended docs, code, tests, validation, commit scope,
   and known unrelated dirty files.
-- Do not implement the plan until the user gives an explicit good-to-commit
-  signal.
+- Do not implement the plan until the user approves implementation.
+- Approval to implement is not approval to commit. Phrases such as `implement
+  the plan`, `apply the plan`, or `go ahead` authorize implementation and
+  validation only unless they explicitly include good-to-commit.
 - Purely read-only investigation and validation may happen before approval when
   needed to make the plan accurate.
 
@@ -36,11 +38,18 @@ linked from here.
   Use `just check` before handing off broad or cross-domain work.
 - Keep local runtime outputs under ignored `data/` unless a task explicitly
   requires another path.
+- After implementation and validation, stop for human review. Report changed
+  files, validation results, and any known unrelated dirty files.
 
 ## Execution Plans
 
-- Use [../exec-plans/index.md](../exec-plans/index.md) for substantial work that
-  needs checked-in, resumable task state.
+- Create an active plan under `docs/exec-plans/active/` before substantial,
+  multi-step, corrective, handoff-prone, or workflow-policy work that needs
+  checked-in, resumable task state.
+- If a task starts small but grows into that shape, stop and create or update
+  the active exec-plan before continuing implementation.
+- Use [../exec-plans/index.md](../exec-plans/index.md) for the exec-plan
+  lifecycle and template.
 - Keep active plans current with progress, decisions, validation, and known
   follow-up work.
 - Plans may hold temporary task state, but durable discoveries must move into
@@ -54,8 +63,10 @@ linked from here.
 
 ## Commit Flow
 
-- After a good-to-commit signal, finish the approved plan in the same run when
-  feasible: implement, validate, stage, and commit.
+- Do not stage or commit implementation changes until the user has reviewed the
+  completed work and given an explicit good-to-commit signal.
+- A good-to-commit signal must happen after implementation review. It authorizes
+  staging agent-owned files, verifying the staged diff, and committing.
 - Stage only files changed for the approved plan. Leave pre-existing unrelated
   dirty files unstaged.
 - Inspect staged changes before committing so the commit contains only the
