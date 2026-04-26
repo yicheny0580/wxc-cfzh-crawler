@@ -31,6 +31,27 @@ def fetch_frontier_row(
     return dict(row) if row else None
 
 
+def reopen_root_reply_frontier(
+    conn: sqlite3.Connection,
+    root_post_id: str,
+    *,
+    updated_at: str,
+) -> None:
+    conn.execute(
+        """
+        UPDATE frontier
+        SET status = 'pending',
+            attempts = 0,
+            updated_at = ?,
+            last_error = NULL
+        WHERE record_type = 'reply'
+            AND root_post_id = ?
+            AND status != 'in_progress'
+        """,
+        (updated_at, root_post_id),
+    )
+
+
 def upsert_frontier_entry(
     conn: sqlite3.Connection,
     entry: FrontierRecord,
@@ -80,7 +101,9 @@ def upsert_frontier_entry(
         and entry.listing_reply_count > current_root_reply_count(conn, entry.post_id)
     ):
         status = "pending"
+        attempts = 0
         last_error = None
+        reopen_root_reply_frontier(conn, entry.post_id, updated_at=now)
     elif status == "failed" and attempts < max_attempts:
         status = "pending"
         last_error = None
@@ -97,6 +120,7 @@ def upsert_frontier_entry(
             listing_title = COALESCE(?, listing_title),
             listing_reply_count = COALESCE(?, listing_reply_count),
             status = ?,
+            attempts = ?,
             updated_at = ?,
             last_error = ?
         WHERE post_id = ?
@@ -115,6 +139,7 @@ def upsert_frontier_entry(
             entry.listing_title,
             entry.listing_reply_count,
             status,
+            attempts,
             now,
             last_error,
             entry.post_id,

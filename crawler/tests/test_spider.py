@@ -7,12 +7,15 @@ import scrapy
 from scrapy.http import TextResponse
 
 from wxc_cfzh_crawler.db import (
+    claim_next_frontier,
     fetch_frontier_row,
     fetch_replies,
     fetch_root_posts,
+    mark_frontier_done,
     upsert_frontier_entry,
+    upsert_post,
 )
-from wxc_cfzh_crawler.models import FrontierRecord
+from wxc_cfzh_crawler.models import ForumPost, FrontierRecord
 from wxc_cfzh_crawler.progress import (
     configure_crawl_progress_reporter,
     reset_crawl_progress_reporter,
@@ -28,8 +31,18 @@ def response_for(name: str, url: str) -> TextResponse:
     return TextResponse(url=url, body=body, encoding="utf-8", request=request)
 
 
+def response_from_html(html: str, url: str) -> TextResponse:
+    request = scrapy.Request(url, meta={})
+    return TextResponse(url=url, body=html.encode(), encoding="utf-8", request=request)
+
+
 def request_post_ids(results: list[object]) -> list[str]:
     return [result.meta["post_id"] for result in results if isinstance(result, scrapy.Request)]
+
+
+def mark_pending_frontier_done(spider: CfzhSpider) -> None:
+    while row := claim_next_frontier(spider.frontier_conn()):
+        mark_frontier_done(spider.frontier_conn(), str(row["post_id"]), http_status=200)
 
 
 class StreamBuffer:
@@ -75,6 +88,94 @@ def test_parse_index_updates_live_progress(tmp_path: Path) -> None:
     assert "pending posts=0 replies=0" in stream.text
     assert "active=4" in stream.text
     assert "scheduled=4/unlimited" in stream.text
+
+
+def test_parse_index_schedules_changed_root_and_reopened_replies(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    conn = spider.frontier_conn()
+    upsert_post(
+        conn,
+        ForumPost(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            reply_count=2,
+        ),
+    )
+    upsert_post(
+        conn,
+        ForumPost(
+            post_id="200",
+            url="https://bbs.wenxuecity.com/cfzh/200.html",
+            reply_count=1,
+        ),
+    )
+    for record in [
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_reply_count=2,
+        ),
+        FrontierRecord(
+            post_id="101",
+            url="https://bbs.wenxuecity.com/cfzh/101.html",
+            record_type="reply",
+            root_post_id="100",
+            depth=1,
+        ),
+        FrontierRecord(
+            post_id="102",
+            url="https://bbs.wenxuecity.com/cfzh/102.html",
+            record_type="reply",
+            root_post_id="100",
+            parent_reply_id="101",
+            depth=2,
+        ),
+        FrontierRecord(
+            post_id="200",
+            url="https://bbs.wenxuecity.com/cfzh/200.html",
+            record_type="post",
+            root_post_id="200",
+            listing_reply_count=1,
+        ),
+        FrontierRecord(
+            post_id="201",
+            url="https://bbs.wenxuecity.com/cfzh/201.html",
+            record_type="reply",
+            root_post_id="200",
+            depth=1,
+        ),
+    ]:
+        upsert_frontier_entry(conn, record)
+    mark_pending_frontier_done(spider)
+
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div id="postlist">
+              <p><a href="/cfzh/100.html" class="post">Root A (3)</a></p>
+              <p><a href="/cfzh/200.html" class="post">Root B (1)</a></p>
+            </div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert request_post_ids(results) == ["100", "101", "102"]
+    for post_id in ("100", "101", "102"):
+        row = fetch_frontier_row(conn, post_id)
+        assert row is not None
+        assert row["status"] == "in_progress"
+    for post_id in ("200", "201"):
+        row = fetch_frontier_row(conn, post_id)
+        assert row is not None
+        assert row["status"] == "done"
 
 
 def test_parse_root_post_saves_atomically_and_schedules_replies(tmp_path: Path) -> None:

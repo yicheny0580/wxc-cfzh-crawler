@@ -37,7 +37,7 @@ By default, recipe-driven data writes go to root `data/crawler.sqlite3`.
 
 ## Behavior Notes
 
-Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen.
+Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen. When that happens, the root post and known replies under that root are reopened so nested reply links can be rediscovered.
 
 Interactive crawler progress is shown as one live-updating `CFZH` terminal line.
 Redirected or non-interactive output suppresses the live line and leaves failures

@@ -121,7 +121,7 @@ def test_reset_in_progress_frontier_restores_pending_without_spending_attempt(
     assert row["attempts"] == 0
 
 
-def test_frontier_delta_refresh_marks_done_root_pending(tmp_path) -> None:
+def test_frontier_delta_refresh_marks_root_and_known_replies_pending(tmp_path) -> None:
     conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
     upsert_post(
         conn,
@@ -129,24 +129,10 @@ def test_frontier_delta_refresh_marks_done_root_pending(tmp_path) -> None:
             post_id="100",
             url="https://bbs.wenxuecity.com/cfzh/100.html",
             title="Root A",
-            reply_count=1,
+            reply_count=2,
         ),
     )
-    upsert_frontier_entry(
-        conn,
-        FrontierRecord(
-            post_id="100",
-            url="https://bbs.wenxuecity.com/cfzh/100.html",
-            record_type="post",
-            root_post_id="100",
-            listing_reply_count=1,
-        ),
-    )
-    claim_next_frontier(conn)
-    mark_frontier_done(conn, "100", http_status=200)
-
-    upsert_frontier_entry(
-        conn,
+    for record in [
         FrontierRecord(
             post_id="100",
             url="https://bbs.wenxuecity.com/cfzh/100.html",
@@ -154,11 +140,63 @@ def test_frontier_delta_refresh_marks_done_root_pending(tmp_path) -> None:
             root_post_id="100",
             listing_reply_count=2,
         ),
+        FrontierRecord(
+            post_id="101",
+            url="https://bbs.wenxuecity.com/cfzh/101.html",
+            record_type="reply",
+            root_post_id="100",
+            depth=1,
+        ),
+        FrontierRecord(
+            post_id="102",
+            url="https://bbs.wenxuecity.com/cfzh/102.html",
+            record_type="reply",
+            root_post_id="100",
+            parent_reply_id="101",
+            depth=2,
+        ),
+        FrontierRecord(
+            post_id="200",
+            url="https://bbs.wenxuecity.com/cfzh/200.html",
+            record_type="post",
+            root_post_id="200",
+            listing_reply_count=1,
+        ),
+        FrontierRecord(
+            post_id="201",
+            url="https://bbs.wenxuecity.com/cfzh/201.html",
+            record_type="reply",
+            root_post_id="200",
+            depth=1,
+        ),
+    ]:
+        upsert_frontier_entry(conn, record)
+
+    while row := claim_next_frontier(conn):
+        mark_frontier_done(conn, str(row["post_id"]), http_status=200)
+
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_reply_count=3,
+        ),
     )
 
-    row = fetch_frontier_row(conn, "100")
-    assert row is not None
-    assert row["status"] == "pending"
+    for post_id in ("100", "101", "102"):
+        row = fetch_frontier_row(conn, post_id)
+        assert row is not None
+        assert row["status"] == "pending"
+        assert row["attempts"] == 0
+
+    for post_id in ("200", "201"):
+        row = fetch_frontier_row(conn, post_id)
+        assert row is not None
+        assert row["status"] == "done"
+        assert row["attempts"] == 1
 
 
 def test_frontier_backfills_existing_posts_and_replies(tmp_path) -> None:
