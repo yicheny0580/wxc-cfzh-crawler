@@ -17,6 +17,15 @@ DOCS = [
     ROOT / "inspector" / "docs" / "index.md",
 ]
 
+RETIRED_COMMAND = "w" + "xc"
+RETIRED_WXC_DOC_PHRASES = [
+    f"uv run {RETIRED_COMMAND}",
+    f"{RETIRED_COMMAND} --help",
+    f"{RETIRED_COMMAND} inspect",
+    f"{RETIRED_COMMAND} crawl",
+    f"{RETIRED_COMMAND} export",
+]
+
 
 def test_doc_map_files_exist() -> None:
     missing = [path for path in DOCS if not path.is_file()]
@@ -39,3 +48,14 @@ def test_doc_map_relative_links_point_to_files() -> None:
                 bad_links.append(f"{path.relative_to(ROOT)} -> {target}")
 
     assert bad_links == []
+
+
+def test_docs_do_not_advertise_retired_wxc_cli() -> None:
+    findings: list[str] = []
+    for path in DOCS:
+        content = path.read_text(encoding="utf-8")
+        for phrase in RETIRED_WXC_DOC_PHRASES:
+            if phrase in content:
+                findings.append(f"{path.relative_to(ROOT)} contains {phrase!r}")
+
+    assert findings == []

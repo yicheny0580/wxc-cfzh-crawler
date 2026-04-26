@@ -3,53 +3,69 @@
 ## Setup
 
 ```bash
-uv sync
-npm --prefix inspector/frontend install
+uv tool install rust-just
+just setup
 ```
 
-`npm install` is only needed when frontend dependencies are not already present.
+Use any supported `just` installation method from the
+[Just Programmer's Manual](https://just.systems/man/en/packages.html). Run
+`just setup` after cloning or when frontend dependency manifests change.
+
+Useful discovery and environment checks:
+
+```bash
+just list
+just doctor
+```
 
 ## Crawl
 
 ```bash
-uv run wxc crawl --pages 3
-uv run wxc crawl --pages 1 --max-requests 3
+just crawl
+just crawl-smoke
 ```
 
 Useful options:
 
-- `--pages`: recent forum listing pages to scan for frontier discovery.
-- `--max-requests`: optional detail-page request cap for smoke runs.
-- `--database-url`: SQLite database URL override.
-- `--log-level`: Scrapy log level override.
+- `pages`: recent forum listing pages to scan for frontier discovery.
+- `max_requests`: optional detail-page request cap for smoke runs.
+- `database_url`: SQLite database URL override.
+- `log_level`: Scrapy log level override.
+
+Example:
+
+```bash
+just crawl pages=5 max_requests=25 log_level=INFO
+```
 
 ## Export
 
 ```bash
-uv run wxc export --shape flat --format jsonl --out data/exports/cfzh.jsonl
-uv run wxc export --shape reddit --format json --out data/exports/cfzh-posts.json
+just export-flat
+just export-reddit
 ```
 
 ## Inspect
 
 ```bash
-uv run wxc inspect
-uv run wxc inspect --db data/crawler.sqlite3 --host 127.0.0.1 --port 8765
+just inspect
+just inspect db=data/crawler.sqlite3 host=127.0.0.1 port=8765
 ```
 
-`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
-changes, rebuilds `inspector/frontend`, then serves the UI and API from FastAPI.
+`just inspect` rebuilds `inspector/frontend`, then serves the UI and API from
+FastAPI.
 
-Backend-only startup is available for troubleshooting and skips the frontend refresh/build:
+Backend-only startup is available for troubleshooting and skips the frontend build:
 
 ```bash
-uv run wxc inspect --skip-ui-build
+just inspect-api
 ```
 
 ## Verification
 
 ```bash
-uv run --project crawler pytest crawler/tests
-uv run --project inspector/backend pytest inspector/backend/tests
-npm --prefix inspector/frontend run build
+just check
+just test-crawler
+just test-backend
+just ui-build
 ```

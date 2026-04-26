@@ -7,12 +7,13 @@ Start with [docs/index.md](docs/index.md) for crawler behavior, parameters, and 
 From the repository root, prefer:
 
 ```bash
-uv run wxc crawl --pages 3
-uv run wxc export --shape reddit --format json --out data/exports/cfzh-posts.json
+just crawl
+just export-reddit
 ```
 
-Low-level Scrapy debugging is still available from this directory:
+Low-level Scrapy debugging is still available:
 
 ```bash
-uv run scrapy crawl cfzh -a pages=1 -a max_requests=3
+SCRAPY_SETTINGS_MODULE=wxc_cfzh_crawler.settings \
+  uv run --package wxc-cfzh-crawler scrapy crawl cfzh -a pages=1 -a max_requests=3
 ```

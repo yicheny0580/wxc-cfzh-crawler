@@ -4,6 +4,7 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 
 ## Maps
 
+- [../justfile](../justfile): canonical root command harness for humans and Codex.
 - [architecture.md](architecture.md): repo structure, workspace model, and code ownership boundaries.
 - [operations.md](operations.md): local commands for crawl, export, inspect, and verification.
 - [quality.md](quality.md): tests, linting, docs checks, and quality expectations.

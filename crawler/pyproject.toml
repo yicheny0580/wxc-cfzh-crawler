@@ -9,10 +9,6 @@ dependencies = [
     "scrapy>=2.14,<3",
 ]
 
-[project.scripts]
-wxc = "wxc_cfzh_crawler.cli:main"
-wxc-cfzh-export = "wxc_cfzh_crawler.export:main"
-
 [dependency-groups]
 dev = [
     "pytest>=8.4,<9",

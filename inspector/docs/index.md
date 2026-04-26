@@ -17,19 +17,19 @@ The inspector provides a read-only browser UI over the crawler SQLite database.
 From the repository root:
 
 ```bash
-uv run wxc inspect
+just inspect
 ```
 
 Useful options:
 
 ```bash
-uv run wxc inspect --db data/crawler.sqlite3
-uv run wxc inspect --host 127.0.0.1 --port 8765
-uv run wxc inspect --skip-ui-build
+just inspect db=data/crawler.sqlite3
+just inspect host=127.0.0.1 port=8765
+just inspect-api
 ```
 
-`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
-changes, rebuilds `../frontend`, then serves the UI and API through FastAPI.
+`just inspect` rebuilds `../frontend`, then serves the UI and API through
+FastAPI. Run `just setup` when frontend dependency manifests change.
 
 ## API
 
@@ -50,6 +50,6 @@ The backend opens SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 ## Checks
 
 ```bash
-uv run --project inspector/backend pytest inspector/backend/tests
-npm --prefix inspector/frontend run build
+just test-backend
+just ui-build
 ```

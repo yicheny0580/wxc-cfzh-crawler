@@ -5,32 +5,34 @@ Local-first crawler and SQLite inspector for the Wenxuecity `财富智汇` forum
 ## Quick Start
 
 ```bash
-uv sync
-uv run wxc crawl --pages 3
-uv run wxc inspect
+uv tool install rust-just
+just setup
+just crawl
+just inspect
 ```
 
 Useful smoke crawl:
 
 ```bash
-uv run wxc crawl --pages 1 --max-requests 3
+just crawl-smoke
 ```
 
 Export flat root/reply records:
 
 ```bash
-uv run wxc export --shape flat --format jsonl --out data/exports/cfzh.jsonl
+just export-flat
 ```
 
 Export root posts with nested replies:
 
 ```bash
-uv run wxc export --shape reddit --format json --out data/exports/cfzh-posts.json
+just export-reddit
 ```
 
 ## Repository Map
 
 - [AGENTS.md](AGENTS.md): short agent entry point and source-of-truth map.
+- [justfile](justfile): canonical root command harness for humans and Codex.
 - [docs/index.md](docs/index.md): root documentation index.
 - [crawler/](crawler/): Scrapy crawler, SQLite persistence, export logic, and crawler tests.
 - [crawler/docs/index.md](crawler/docs/index.md): crawler behavior, parameters, and data notes.
@@ -41,18 +43,22 @@ uv run wxc export --shape reddit --format json --out data/exports/cfzh-posts.jso
 ## Common Commands
 
 ```bash
-uv run wxc --help
-uv run wxc crawl --help
-uv run wxc export --help
-uv run wxc inspect --help
+just list
+just doctor
+just check
 ```
 
-`wxc inspect` refreshes frontend dependencies when `package.json` or `package-lock.json`
-changes, rebuilds `inspector/frontend`, then serves the UI and API through FastAPI.
+`just` is the root command harness for both humans and Codex. Run `just setup`
+after cloning or when `inspector/frontend/package.json` or `package-lock.json`
+changes. `just inspect` rebuilds `inspector/frontend`, then serves the UI and API
+through FastAPI.
 
-Low-level Scrapy usage is still available from the crawler project:
+Low-level Scrapy usage is still available for troubleshooting:
 
 ```bash
-cd crawler
-uv run scrapy crawl cfzh -a pages=1 -a max_requests=3
+SCRAPY_SETTINGS_MODULE=wxc_cfzh_crawler.settings \
+  uv run --package wxc-cfzh-crawler scrapy crawl cfzh -a pages=1 -a max_requests=3
 ```
+
+Other supported `just` installation paths are listed in the
+[Just Programmer's Manual](https://just.systems/man/en/packages.html).
