@@ -30,9 +30,9 @@ architecture, command harness behavior, quality policy, references, and
 supported workflows. Child docs stay package-local: source maps, local config,
 package behavior, package checks, and links back to root sources of truth.
 
-Use [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for agent
-planning, implementation, checked-in execution plans, and stable-doc promotion
-rules.
+Use [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for the
+canonical agent workflow: planning, implementation approval, checked-in
+execution plans, validation, human review, and commit rules.
 
 ## External Reference
 

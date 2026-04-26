@@ -1,5 +1,11 @@
 # Agent Workflow Review Gate
 
+Historical note: the current lifecycle is defined in
+[../../design-docs/agent-workflow.md](../../design-docs/agent-workflow.md). It
+now requires qualifying work to create or update the active exec-plan as the
+first tracked implementation artifact after approval, before stable docs, code,
+or tests.
+
 ## Goal
 
 Clarify the repository agent workflow so meaningful implementation starts with a
@@ -26,7 +32,8 @@ only after human review plus an explicit good-to-commit signal.
 
 ## Plan
 
-- Create this active exec-plan before further workflow repair.
+- Create this active exec-plan as the first tracked artifact for further
+  workflow repair.
 - Update the agent workflow doc so implementation approval is not commit
   approval and human review is required before good-to-commit.
 - Make exec-plan consideration explicit for substantial, multi-step,
@@ -53,7 +60,7 @@ only after human review plus an explicit good-to-commit signal.
 
 ## Progress
 
-- Created active exec-plan draft.
+- Created active exec-plan draft as the first tracked artifact for that repair.
 - Review-before-commit workflow wording was implemented and reviewed.
 - Exec-plan trigger wording and docs test coverage are implemented locally.
 - `just test-root` passed after rerunning outside the sandbox for `uv` cache

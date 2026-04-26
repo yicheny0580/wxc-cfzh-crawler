@@ -58,7 +58,7 @@ changes. `just inspect` rebuilds `inspector/frontend`, then serves the UI and
 API through FastAPI.
 
 This repo is doc-first. Start from [docs/](docs/index.md); agent-specific
-planning, validation, and commit rules live in
+planning, exec-plan lifecycle, validation, and commit rules live in
 [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md).
 
 Low-level Scrapy usage is still available for troubleshooting:

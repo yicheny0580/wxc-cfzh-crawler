@@ -7,7 +7,7 @@ This file is a table of contents, not the repository manual. Start here, then op
 - [README.md](README.md): current human-facing quick start and command surface.
 - [justfile](justfile): canonical root command harness.
 - [docs/index.md](docs/index.md): root documentation map.
-- [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md): agent planning, implementation, validation, and commit workflow.
+- [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md): agent planning, exec-plan lifecycle, validation, review, and commit workflow.
 - [docs/design-docs/project-invariants.md](docs/design-docs/project-invariants.md): doc-first workflow and durable project invariants.
 - [docs/design-docs/harness.md](docs/design-docs/harness.md): setup, command harness, and validation flow.
 - [docs/design-docs/code-unit-design.md](docs/design-docs/code-unit-design.md): code unit boundaries and interface expectations.
@@ -26,7 +26,7 @@ This file is a table of contents, not the repository manual. Start here, then op
 ## Repo Rules
 
 - Follow [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md) for draft plans, approval, implementation, validation, and commits.
-- For substantial, corrective, handoff-prone, or workflow-policy work, create an active exec-plan with `just exec-plan-new slug=... title='...'` before implementation and keep it current through completion.
+- For substantial, corrective, handoff-prone, or workflow-policy work, create or update the active exec-plan with `just exec-plan-new slug=... title='...'` as the first tracked implementation artifact after approval, before stable docs, code, or tests.
 - Keep domain code in `crawler/` or `inspector/`; keep local runtime outputs in ignored `data/`.
 - Prefer `just ...` for root workflows. Start with `just list`; use targeted recipes such as `just test-crawler`, `just ui-build`, and `just check` before dropping to raw low-level commands.
 - Update the relevant docs index when adding a new subsystem, command, or operational assumption.

@@ -1,5 +1,11 @@
 # Exec-Plan Lifecycle Harness
 
+Historical note: the current lifecycle is defined in
+[../../design-docs/agent-workflow.md](../../design-docs/agent-workflow.md). It
+now requires qualifying work to create or update the active exec-plan as the
+first tracked implementation artifact after approval, before stable docs, code,
+or tests.
+
 ## Goal
 
 Make exec-plan handling explicit enough that agents cannot treat it as optional
@@ -19,7 +25,8 @@ guidance for substantial, corrective, handoff-prone, or workflow-policy work.
 
 ## Plan
 
-- Create this active exec-plan before implementation edits.
+- Create this active exec-plan as the first tracked implementation artifact
+  after approval.
 - Add `just exec-plan-new slug=... title=...` and
   `just exec-plan-complete slug=...` as lightweight harness commands.
 - Back the commands with a root script that validates slugs, creates active
@@ -48,7 +55,8 @@ guidance for substantial, corrective, handoff-prone, or workflow-policy work.
 
 ## Progress
 
-- Active exec-plan created before implementation edits.
+- Active exec-plan created as the first tracked implementation artifact after
+  approval.
 - Added the exec-plan helper script, root `just` recipes, and root tests.
 - Updated agent workflow, exec-plan, harness, operations, quality, template, and
   agent map docs with the explicit exec-plan gate and helper lifecycle.

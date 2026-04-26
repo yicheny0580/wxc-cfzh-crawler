@@ -23,6 +23,8 @@ integrity without turning docs into a heavy template system.
 
 Root tests also cover the exec-plan helper script so active-plan creation and
 completion reject unsafe slugs, missing active plans, and accidental overwrites.
+Workflow docs checks require the active exec-plan to be documented as the first
+tracked implementation artifact for qualifying work.
 
 Update the relevant docs index when adding:
 

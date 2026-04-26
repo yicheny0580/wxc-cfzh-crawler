@@ -10,9 +10,13 @@ design.
 
 - Start every meaningful implementation task by opening the relevant docs from
   [../index.md](../index.md).
+- For qualifying agent work, create or update the active exec-plan as the
+  first tracked implementation artifact after implementation approval and before
+  stable docs, code, or tests. The exact lifecycle order lives in
+  [agent-workflow.md](agent-workflow.md).
 - If the change affects behavior, commands, public APIs, runtime paths, product
   intent, target-site assumptions, workflows, or durable operating assumptions,
-  update the relevant source-of-truth doc before changing implementation.
+  update the relevant source-of-truth doc before changing implementation code.
 - Implement against the documented intent, not against an unstated plan.
 - After implementation, revise the docs if the implementation revealed a
   necessary correction, constraint, or sharper wording.

@@ -63,6 +63,13 @@ EXEC_PLANS_DOC = ROOT / "docs" / "exec-plans" / "index.md"
 HARNESS_DOC = ROOT / "docs" / "design-docs" / "harness.md"
 OPERATIONS_DOC = ROOT / "docs" / "operations.md"
 JUSTFILE = ROOT / "justfile"
+AGENTS_DOC = ROOT / "AGENTS.md"
+README_DOC = ROOT / "README.md"
+PROJECT_INVARIANTS_DOC = ROOT / "docs" / "design-docs" / "project-invariants.md"
+
+
+def normalized_doc_text(path: Path) -> str:
+    return re.sub(r"\s+", " ", path.read_text(encoding="utf-8").lower())
 
 
 def test_doc_map_files_exist() -> None:
@@ -100,14 +107,35 @@ def test_agent_workflow_requires_review_before_commit() -> None:
 
 
 def test_agent_workflow_requires_active_exec_plan_for_substantial_work() -> None:
-    content = AGENT_WORKFLOW_DOC.read_text(encoding="utf-8").lower()
+    content = normalized_doc_text(AGENT_WORKFLOW_DOC)
 
     assert "docs/exec-plans/active/" in content
     assert "substantial" in content
     assert "exec-plan gate decision" in content
+    assert "first tracked implementation artifact" in content
+    assert "after implementation approval" in content
+    assert "before stable docs" in content
     assert "just exec-plan-new" in content
     assert "just exec-plan-complete" in content
     assert "before continuing implementation" in content
+
+
+def test_agent_workflow_documents_canonical_order() -> None:
+    content = normalized_doc_text(AGENT_WORKFLOW_DOC)
+
+    ordered_phrases = [
+        "plan conversation",
+        "user implementation approval",
+        "first tracked implementation",
+        "stable docs, code, or tests",
+        "run validation",
+        "stop for human review",
+        "explicit good-to-commit signal",
+        "complete the exec-plan",
+    ]
+
+    positions = [content.index(phrase) for phrase in ordered_phrases]
+    assert positions == sorted(positions)
 
 
 def test_harness_documents_exec_plan_helpers() -> None:
@@ -121,6 +149,33 @@ def test_harness_documents_exec_plan_helpers() -> None:
     for content in contents:
         assert "exec-plan-new" in content
         assert "exec-plan-complete" in content
+
+
+def test_related_agent_workflow_notes_reference_canonical_lifecycle() -> None:
+    docs = [
+        AGENTS_DOC,
+        README_DOC,
+        EXEC_PLANS_DOC,
+        HARNESS_DOC,
+        OPERATIONS_DOC,
+        PROJECT_INVARIANTS_DOC,
+    ]
+
+    for path in docs:
+        content = normalized_doc_text(path)
+        assert "agent-workflow.md" in content
+
+    lifecycle_docs = [
+        AGENTS_DOC,
+        EXEC_PLANS_DOC,
+        HARNESS_DOC,
+        OPERATIONS_DOC,
+        PROJECT_INVARIANTS_DOC,
+    ]
+    for path in lifecycle_docs:
+        content = normalized_doc_text(path)
+        assert "first tracked implementation artifact" in content
+        assert "before stable docs" in content
 
 
 def test_doc_map_relative_links_point_to_files() -> None:

@@ -21,8 +21,8 @@ linked from here.
 - The plan must identify intended docs, code, tests, validation, commit scope,
   and known unrelated dirty files.
 - The plan must make an explicit exec-plan gate decision: either name the
-  active exec-plan for qualifying work, or state why the change is small enough
-  to skip a checked-in plan.
+  intended active exec-plan slug for qualifying work, or state why the change is
+  small enough to skip a checked-in plan.
 - Do not implement the plan until the user approves implementation.
 - Approval to implement is not approval to commit. Phrases such as `implement
   the plan`, `apply the plan`, or `go ahead` authorize implementation and
@@ -30,11 +30,29 @@ linked from here.
 - Purely read-only investigation and validation may happen before approval when
   needed to make the plan accurate.
 
+## Required Order
+
+For qualifying work, follow this order:
+
+1. Plan conversation.
+2. User implementation approval.
+3. Create or update the active exec-plan as the first tracked implementation
+   artifact.
+4. Update stable docs, code, or tests.
+5. Run validation.
+6. Stop for human review.
+7. Receive an explicit good-to-commit signal.
+8. Complete the exec-plan and commit the approved changes.
+
+The active exec-plan is lifecycle state, not a stable-doc replacement. For
+qualifying work, creating it after stable docs, code, or tests have changed is
+noncompliant even if the plan is completed before commit.
+
 ## Implementation Flow
 
-- Follow the doc-first workflow: update affected source-of-truth docs first,
-  implement second, and revise docs again if implementation changes the final
-  design.
+- Follow the doc-first workflow after the active exec-plan exists: update
+  affected source-of-truth docs before code, then revise docs again if
+  implementation changes the final design.
 - Prefer root `just` recipes for validation and user-facing workflows. Start
   with `just list` when command shape is unclear.
 - Use the smallest validation command that covers the change while developing.
@@ -49,6 +67,9 @@ linked from here.
 - Create an active plan under `docs/exec-plans/active/` before substantial,
   multi-step, corrective, handoff-prone, or workflow-policy work that needs
   checked-in, resumable task state.
+- For qualifying work, the active exec-plan must be the first tracked
+  implementation artifact after implementation approval, before stable docs,
+  code, or tests.
 - Prefer the harness helper when creating the active plan:
   `just exec-plan-new slug=short-name title='Human Title'`.
 - If a task starts small but grows into that shape, stop and create or update

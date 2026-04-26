@@ -2,7 +2,8 @@
 
 Use this template for substantial work that may need to resume without external
 context. Delete sections that do not apply, but keep the plan specific enough to
-execute without external context.
+execute without external context. For qualifying work, create the active plan
+after implementation approval and before changing stable docs, code, or tests.
 
 ## Goal
 
@@ -12,6 +13,8 @@ Describe the user-visible or repository-visible outcome.
 
 Link the stable docs, source files, and tests that define the current behavior.
 Record known unrelated dirty files from `git status --short`, or state `none`.
+State whether this active plan was created as the first tracked implementation
+artifact.
 
 ## Plan
 
@@ -31,5 +34,6 @@ Record known unrelated dirty files from `git status --short`, or state `none`.
 ## Progress
 
 - Keep this section current while the plan is active.
-- Record active-plan creation before implementation edits, major implementation
-  milestones, validation results, stable-doc promotion, and completion.
+- Record active-plan creation as the first tracked implementation artifact,
+  major implementation milestones, validation results, stable-doc promotion, and
+  completion.
