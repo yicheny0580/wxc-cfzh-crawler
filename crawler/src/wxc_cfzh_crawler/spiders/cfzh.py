@@ -24,8 +24,9 @@ from wxc_cfzh_crawler.parsing import (
     parse_reply_count,
     post_id_from_url,
 )
+from wxc_cfzh_crawler.paths import default_database_url
 
-DEFAULT_DATABASE_URL = "sqlite:///data/crawler.sqlite3"
+DEFAULT_DATABASE_URL = default_database_url()
 MAX_FRONTIER_ATTEMPTS = 3
 
 

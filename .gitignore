@@ -3,7 +3,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .scrapy/
-data/
+data/*
+!data/.gitkeep
 *.sqlite3
 *.db
 inspector/backend/.venv/

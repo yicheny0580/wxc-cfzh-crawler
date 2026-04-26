@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 
+from wxc_cfzh_crawler.paths import default_data_dir, default_database_url
+
 BOT_NAME = "wxc_cfzh_crawler"
 
 SPIDER_MODULES = ["wxc_cfzh_crawler.spiders"]
@@ -43,8 +45,8 @@ ITEM_PIPELINES = {
 
 TELNETCONSOLE_ENABLED = False
 
-WXC_DATA_DIR = os.getenv("WXC_DATA_DIR", "data")
-DATABASE_URL = os.getenv("DATABASE_URL", f"sqlite:///{WXC_DATA_DIR}/crawler.sqlite3")
+WXC_DATA_DIR = str(default_data_dir())
+DATABASE_URL = default_database_url()
 
 REQUEST_FINGERPRINTER_IMPLEMENTATION = "2.7"
 TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"

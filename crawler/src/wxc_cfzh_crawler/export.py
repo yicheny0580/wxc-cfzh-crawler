@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from wxc_cfzh_crawler.db import connect, fetch_replies, fetch_root_posts
+from wxc_cfzh_crawler.paths import default_database_url
 
 
 def build_reply_trees(replies: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -76,12 +76,35 @@ def write_records(records: list[dict[str, Any]], *, output_path: Path, output_fo
             handle.write("\n")
 
 
+def export_records(
+    *,
+    database_url: str,
+    output_path: Path,
+    output_format: str,
+    shape: str,
+) -> None:
+    try:
+        conn = connect(database_url)
+    except sqlite3.Error as exc:
+        raise SystemExit(f"Could not open database: {exc}") from exc
+
+    with conn:
+        posts = fetch_root_posts(conn)
+        replies = fetch_replies(conn)
+
+    if shape == "flat":
+        records = build_flat_records(posts, replies)
+    else:
+        records = build_posts_with_replies(posts, replies)
+    write_records(records, output_path=output_path, output_format=output_format)
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Export crawled Wenxuecity cfzh posts.")
     parser.add_argument(
         "--database-url",
-        default=os.getenv("DATABASE_URL", "sqlite:///data/crawler.sqlite3"),
-        help="SQLite database URL. Defaults to DATABASE_URL or sqlite:///data/crawler.sqlite3.",
+        default=default_database_url(),
+        help="SQLite database URL. Defaults to DATABASE_URL or root data/crawler.sqlite3.",
     )
     parser.add_argument("--out", required=True, help="Output file path.")
     parser.add_argument("--format", choices=["json", "jsonl"], default="jsonl")
@@ -91,20 +114,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    try:
-        conn = connect(args.database_url)
-    except sqlite3.Error as exc:
-        raise SystemExit(f"Could not open database: {exc}") from exc
-
-    with conn:
-        posts = fetch_root_posts(conn)
-        replies = fetch_replies(conn)
-
-    if args.shape == "flat":
-        records = build_flat_records(posts, replies)
-    else:
-        records = build_posts_with_replies(posts, replies)
-    write_records(records, output_path=Path(args.out), output_format=args.format)
+    export_records(
+        database_url=args.database_url,
+        output_path=Path(args.out),
+        output_format=args.format,
+        shape=args.shape,
+    )
     return 0
 
 
