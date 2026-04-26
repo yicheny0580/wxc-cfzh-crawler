@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { CrawlControls } from "./CrawlControls";
 import { FilterPanel } from "./FilterPanel";
+import { ResizableInspectorLayout } from "./ResizableInspectorLayout";
 import { PAGE_SIZE, Pagination, ResultList } from "./Results";
 import { ReaderPane, type FocusRequest } from "./Reader";
 import { ErrorBanner, SummaryStrip } from "./Summary";
@@ -323,56 +324,59 @@ function App() {
         onClearFilters={clearFilters}
       />
 
-      <main className="mx-auto grid w-full max-w-[1800px] gap-3 px-3 py-3 sm:px-4 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start lg:px-6">
-        <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:min-h-0">
-          <div className="shrink-0 border-b border-stone-300 p-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search posts and replies"
-                className="h-9 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-900"
-                  title="Clear search"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              ) : null}
+      <ResizableInspectorLayout
+        resultsPane={
+          <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:min-h-0">
+            <div className="shrink-0 border-b border-stone-300 p-2">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search posts and replies"
+                  className="h-9 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    onClick={() => setQuery("")}
+                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-900"
+                    title="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </div>
-          <ResultList
-            results={results?.items ?? []}
-            loading={showResultsLoading}
-            refreshing={refreshingAfterCrawl && resultsLoading && Boolean(results)}
-            selectedResultKey={selectedResultKey}
-            onSelect={selectResult}
-          />
-          <Pagination
-            results={results}
-            canGoBack={canGoBack}
-            canGoForward={canGoForward}
-            onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-            onNext={() => setOffset(offset + PAGE_SIZE)}
-          />
-        </aside>
-
-        <section className="min-w-0 border border-stone-300 bg-[#fbfaf7]">
-          <ReaderPane
-            post={selectedPost}
-            focusRequest={focusRequest}
-            loading={showDetailLoading}
-            refreshing={refreshingAfterCrawl && detailLoading && Boolean(selectedPost)}
-            error={detailError}
-            empty={!selectedPostId && !resultsLoading}
-          />
-        </section>
-      </main>
+            <ResultList
+              results={results?.items ?? []}
+              loading={showResultsLoading}
+              refreshing={refreshingAfterCrawl && resultsLoading && Boolean(results)}
+              selectedResultKey={selectedResultKey}
+              onSelect={selectResult}
+            />
+            <Pagination
+              results={results}
+              canGoBack={canGoBack}
+              canGoForward={canGoForward}
+              onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+              onNext={() => setOffset(offset + PAGE_SIZE)}
+            />
+          </aside>
+        }
+        readerPane={
+          <section className="min-w-0 border border-stone-300 bg-[#fbfaf7]">
+            <ReaderPane
+              post={selectedPost}
+              focusRequest={focusRequest}
+              loading={showDetailLoading}
+              refreshing={refreshingAfterCrawl && detailLoading && Boolean(selectedPost)}
+              error={detailError}
+              empty={!selectedPostId && !resultsLoading}
+            />
+          </section>
+        }
+      />
     </div>
   );
 }
