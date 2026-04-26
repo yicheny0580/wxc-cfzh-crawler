@@ -22,20 +22,27 @@ design.
   necessary correction, constraint, or sharper wording.
 - Purely mechanical changes may leave docs unchanged only after confirming the
   existing docs already describe the intended behavior.
-- Keep `AGENTS.md` and `README.md` as maps. Do not turn either file into the
-  repository manual.
-- Prefer small focused docs over one large handbook. Add a new source-of-truth
-  page only when an existing page would become ambiguous or overloaded.
 - Capture repeated review feedback as docs or tooling so future maintainers can
   reuse the decision.
+- Agent planning, checked-in execution-plan lifecycle, stable-doc promotion, and
+  commit rules live in [agent-workflow.md](agent-workflow.md).
+
+## Documentation Shape
+
+- Keep `AGENTS.md`, `README.md`, and index pages as thin maps. Do not turn them
+  into repository manuals or duplicate the source-of-truth docs they link to.
+- Prefer small focused docs over one large handbook. Split docs by domain,
+  responsibility, or layer before an existing page becomes ambiguous or
+  overloaded.
+- Long-term ideas, design choices, invariants, and operating assumptions belong
+  in stable docs under the relevant source-of-truth area, not only in an
+  exec-plan.
 - Keep durable cross-domain knowledge in root `docs/`: invariants, product
   intent, architecture, command behavior, quality policy, references, and
   workflow expectations.
 - Keep child docs under `crawler/docs/` and `inspector/docs/` as package-local
   maps and package behavior notes. Link back to root docs instead of duplicating
   cross-domain rules.
-- Agent planning, checked-in execution-plan lifecycle, and stable-doc promotion
-  rules live in [agent-workflow.md](agent-workflow.md).
 
 ## Repository Boundaries
 

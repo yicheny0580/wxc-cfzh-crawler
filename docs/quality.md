@@ -18,13 +18,16 @@ and subproject map files exist, source-of-truth docs are present, and relative
 links in those docs point to real files.
 
 The docs checks follow an almost-strict harness style: they enforce the core map
-files, exec-plan lifecycle directories, exec-plan helper documentation, and link
-integrity without turning docs into a heavy template system.
+files, thin-index expectations, exec-plan lifecycle directories, exec-plan
+helper documentation, focused-doc guidance, and link integrity without turning
+docs into a heavy template system.
 
 Root tests also cover the exec-plan helper script so active-plan creation and
 completion reject unsafe slugs, missing active plans, and accidental overwrites.
 Workflow docs checks require the active exec-plan to be documented as the first
-tracked implementation artifact for qualifying work.
+tracked implementation artifact for qualifying work. They also require
+exec-plans to be described as important execution and resume records, while
+durable design choices and long-term operating rules live in stable docs.
 
 Update the relevant docs index when adding:
 
@@ -39,6 +42,8 @@ Agent planning, checked-in execution-plan lifecycle, stable-doc promotion, and
 commit rules live in [design-docs/agent-workflow.md](design-docs/agent-workflow.md).
 Doc-first implementation rules live in
 [design-docs/project-invariants.md](design-docs/project-invariants.md).
+When docs become broad or ambiguous, split them by domain, responsibility, or
+layer before adding more unrelated detail.
 
 ## Code Expectations
 

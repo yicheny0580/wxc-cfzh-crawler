@@ -1,6 +1,9 @@
 # Documentation Index
 
-This directory is the root knowledge map. It follows the harness-engineering pattern of a thin index that points to smaller sources of truth instead of duplicating the whole repository in one file.
+This directory is the root knowledge map. It follows the harness-engineering
+pattern of a thin index that points to smaller sources of truth instead of
+duplicating the whole repository in one file. Index docs are navigation layers:
+they point to the right source, not a copy of that source.
 
 ## Maps
 
@@ -8,7 +11,7 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 - [architecture.md](architecture.md): repo structure, workspace model, and code ownership boundaries.
 - [operations.md](operations.md): local commands for crawl, export, inspect, and verification.
 - [quality.md](quality.md): tests, linting, docs checks, and quality expectations.
-- [exec-plans/index.md](exec-plans/index.md): first-class checked-in plans for larger work.
+- [exec-plans/index.md](exec-plans/index.md): checked-in execution records for larger work.
 
 ## Source Of Truth
 
@@ -29,6 +32,8 @@ Root docs own durable cross-domain knowledge: invariants, product intent,
 architecture, command harness behavior, quality policy, references, and
 supported workflows. Child docs stay package-local: source maps, local config,
 package behavior, package checks, and links back to root sources of truth.
+Split docs by domain, responsibility, or layer before a page becomes an
+overloaded manual.
 
 Use [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for the
 canonical agent workflow: planning, implementation approval, checked-in

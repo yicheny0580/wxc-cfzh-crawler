@@ -1,6 +1,7 @@
 # Agent Map
 
-This file is a table of contents, not the repository manual. Start here, then open the linked source of truth that matches the task.
+This file is a thin table-of-contents map, not the repository manual. Start
+here, then open the linked source of truth that matches the task.
 
 ## First Reads
 
@@ -21,12 +22,14 @@ This file is a table of contents, not the repository manual. Start here, then op
 
 - [crawler/docs/index.md](crawler/docs/index.md): crawler behavior, Scrapy settings, root recipe parameters, SQLite output, and tests.
 - [inspector/docs/index.md](inspector/docs/index.md): inspector backend/frontend startup, API behavior, and UI build notes.
-- [docs/exec-plans/index.md](docs/exec-plans/index.md): durable plans for larger changes.
+- [docs/exec-plans/index.md](docs/exec-plans/index.md): checked-in execution records for larger changes.
 
 ## Repo Rules
 
 - Follow [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md) for draft plans, approval, implementation, validation, and commits.
 - For substantial, corrective, handoff-prone, or workflow-policy work, create or update the active exec-plan with `just exec-plan-new slug=... title='...'` as the first tracked implementation artifact after approval, before stable docs, code, or tests.
+- Keep maps and indexes thin. Put durable ideas, design choices, and operating
+  rules in the relevant stable doc, not in `AGENTS.md` or an exec-plan.
 - Keep domain code in `crawler/` or `inspector/`; keep local runtime outputs in ignored `data/`.
 - Prefer `just ...` for root workflows. Start with `just list`; use targeted recipes such as `just test-crawler`, `just ui-build`, and `just check` before dropping to raw low-level commands.
 - Update the relevant docs index when adding a new subsystem, command, or operational assumption.

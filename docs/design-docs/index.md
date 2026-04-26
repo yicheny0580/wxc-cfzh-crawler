@@ -1,8 +1,8 @@
 # Design Docs
 
-This directory holds durable engineering design guidance. It is the first stop
-when a change affects project rules, command harness behavior, code unit shape,
-or other implementation conventions.
+This directory is a thin map for durable engineering design guidance. It is the
+first stop when a change affects project rules, command harness behavior, code
+unit shape, or other implementation conventions.
 
 ## Source Of Truth
 

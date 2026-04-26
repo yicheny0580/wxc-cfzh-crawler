@@ -65,7 +65,20 @@ OPERATIONS_DOC = ROOT / "docs" / "operations.md"
 JUSTFILE = ROOT / "justfile"
 AGENTS_DOC = ROOT / "AGENTS.md"
 README_DOC = ROOT / "README.md"
+DOCS_INDEX_DOC = ROOT / "docs" / "index.md"
+DESIGN_DOCS_INDEX_DOC = ROOT / "docs" / "design-docs" / "index.md"
+PRODUCT_SPECS_INDEX_DOC = ROOT / "docs" / "product-specs" / "index.md"
+REFERENCES_INDEX_DOC = ROOT / "docs" / "references" / "index.md"
 PROJECT_INVARIANTS_DOC = ROOT / "docs" / "design-docs" / "project-invariants.md"
+THIN_MAP_DOCS = [
+    AGENTS_DOC,
+    README_DOC,
+    DOCS_INDEX_DOC,
+    DESIGN_DOCS_INDEX_DOC,
+    PRODUCT_SPECS_INDEX_DOC,
+    REFERENCES_INDEX_DOC,
+]
+MAX_THIN_MAP_LINES = 120
 
 
 def normalized_doc_text(path: Path) -> str:
@@ -89,6 +102,19 @@ def test_root_index_links_source_of_truth_sections() -> None:
     missing_links = [target for target in SOURCE_OF_TRUTH_LINKS if target not in content]
 
     assert missing_links == []
+
+
+def test_thin_index_layer_map_pattern() -> None:
+    for path in THIN_MAP_DOCS:
+        content = normalized_doc_text(path)
+        line_count = len(path.read_text(encoding="utf-8").splitlines())
+
+        assert "map" in content or "index" in content
+        assert line_count <= MAX_THIN_MAP_LINES
+
+    assert "table-of-contents map" in normalized_doc_text(AGENTS_DOC)
+    assert "thin index" in normalized_doc_text(DOCS_INDEX_DOC)
+    assert "source of truth" in normalized_doc_text(DOCS_INDEX_DOC)
 
 
 def test_agent_workflow_requires_stable_doc_promotion() -> None:
@@ -118,6 +144,29 @@ def test_agent_workflow_requires_active_exec_plan_for_substantial_work() -> None
     assert "just exec-plan-new" in content
     assert "just exec-plan-complete" in content
     assert "before continuing implementation" in content
+
+
+def test_exec_plans_are_mandatory_execution_records() -> None:
+    workflow = normalized_doc_text(AGENT_WORKFLOW_DOC)
+    exec_plans = normalized_doc_text(EXEC_PLANS_DOC)
+    template = normalized_doc_text(ROOT / "docs" / "exec-plans" / "template.md")
+
+    assert "mandatory execution and resume state" in workflow
+    assert "execution records" in exec_plans
+    assert "not optional for qualifying work" in exec_plans
+    assert "not the long-term home" in exec_plans
+    assert "durable design choices" in exec_plans
+    assert "execution records" in template
+    assert "durable design choices" in template
+
+
+def test_project_invariants_require_focused_docs() -> None:
+    content = normalized_doc_text(PROJECT_INVARIANTS_DOC)
+
+    assert "thin maps" in content
+    assert "small focused docs" in content
+    assert "split docs by domain, responsibility, or layer" in content
+    assert "long-term ideas, design choices" in content
 
 
 def test_agent_workflow_documents_canonical_order() -> None:

@@ -1,9 +1,14 @@
 # Execution Plans
 
-Use this directory for durable plans that should be resumable without external
-context. Execution plans are first-class repository knowledge, not scratch
-notes, when work is broad enough that progress, decisions, or handoff state
+Use this directory for checked-in execution records that should be resumable
+without external context. Execution plans are important lifecycle artifacts, not
+scratch notes and not optional for qualifying work. They record task intent,
+progress, implementation decisions, validation, and handoff state for work that
 should survive a single turn.
+
+Exec-plans are not the long-term home for durable design choices, ideas,
+invariants, product rules, or operating assumptions. Promote those into the
+relevant stable doc before completing the plan.
 
 - [active/](active/): plans still being executed.
 - [completed/](completed/): plans retained for historical context.
@@ -31,8 +36,8 @@ Small one-turn changes do not need a checked-in execution plan.
 
 ## Stable Docs
 
-Plans may contain temporary task state and decision history. Stable document
-placement and promotion rules live in
+Plans may contain temporary execution state and decision history. Stable
+document placement and promotion rules live in
 [../design-docs/agent-workflow.md](../design-docs/agent-workflow.md).
 
 ## Slugs

@@ -44,9 +44,10 @@ For qualifying work, follow this order:
 7. Receive an explicit good-to-commit signal.
 8. Complete the exec-plan and commit the approved changes.
 
-The active exec-plan is lifecycle state, not a stable-doc replacement. For
-qualifying work, creating it after stable docs, code, or tests have changed is
-noncompliant even if the plan is completed before commit.
+The active exec-plan is mandatory execution and resume state for qualifying
+work, not a stable-doc replacement. For qualifying work, creating it after
+stable docs, code, or tests have changed is noncompliant even if the plan is
+completed before commit.
 
 ## Implementation Flow
 
@@ -78,11 +79,11 @@ noncompliant even if the plan is completed before commit.
   lifecycle and template.
 - Keep active plans current with progress, decisions, validation, and known
   follow-up work.
-- Plans may hold temporary task state, but durable discoveries must move into
-  persistent docs before the plan is completed.
-- Promote durable invariants, product rules, command behavior, runtime paths,
-  target-site assumptions, workflow expectations, and quality policy into the
-  relevant stable doc.
+- Plans may hold temporary task state and execution decisions, but durable
+  discoveries must move into persistent docs before the plan is completed.
+- Promote long-term ideas, design choices, durable invariants, product rules,
+  command behavior, runtime paths, target-site assumptions, workflow
+  expectations, and quality policy into the relevant stable doc.
 - Move completed plans from `docs/exec-plans/active/` to
   `docs/exec-plans/completed/` only after implementation, validation, and stable
   doc promotion are done.

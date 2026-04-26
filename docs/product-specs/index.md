@@ -1,7 +1,8 @@
 # Product Specs
 
-This directory describes product intent and user workflows. Update these docs
-when a change alters what the crawler or inspector is supposed to help users do.
+This directory is a thin map for product intent and user workflows. Update
+these docs when a change alters what the crawler or inspector is supposed to
+help users do.
 
 ## Source Of Truth
 

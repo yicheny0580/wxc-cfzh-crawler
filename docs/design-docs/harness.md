@@ -41,9 +41,9 @@ dependencies with `npm --prefix inspector/frontend ci`.
 
 ## Exec-Plan Helpers
 
-Agents use the root harness for checked-in execution-plan lifecycle steps. For
-qualifying work, create the active plan as the first tracked implementation
-artifact after approval, before stable docs, code, or tests:
+Agents use the root harness for checked-in execution-record lifecycle steps.
+For qualifying work, create the active exec-plan as the first tracked
+implementation artifact after approval, before stable docs, code, or tests:
 
 ```bash
 just exec-plan-new slug=short-name title='Human Title'
@@ -53,6 +53,8 @@ just exec-plan-complete slug=short-name
 The helper creates active plans from `docs/exec-plans/template.md`, validates
 slug shape, and refuses to overwrite existing active or completed plans.
 The lifecycle source of truth is [agent-workflow.md](agent-workflow.md).
+Exec-plans preserve execution and resume state; durable design choices and
+operating rules belong in stable docs.
 
 ## Validation
 

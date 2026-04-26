@@ -1,9 +1,11 @@
 # Execution Plan Template
 
 Use this template for substantial work that may need to resume without external
-context. Delete sections that do not apply, but keep the plan specific enough to
-execute without external context. For qualifying work, create the active plan
-after implementation approval and before changing stable docs, code, or tests.
+context. Exec-plans are checked-in execution records for qualifying work, not
+the long-term home for durable design choices. Delete sections that do not
+apply, but keep the plan specific enough to execute without external context.
+For qualifying work, create the active plan after implementation approval and
+before changing stable docs, code, or tests.
 
 ## Goal
 
@@ -25,7 +27,9 @@ artifact.
 
 ## Decisions
 
-- Record decisions that explain why the active plan chose one path over another.
+- Record execution decisions that explain why the active plan chose one path
+  over another. Promote durable design choices into stable docs before
+  completing the plan.
 
 ## Validation
 

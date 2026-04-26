@@ -11,14 +11,16 @@ The root is the workspace control plane. It contains thin docs, the root
 `pyproject.toml`, the shared `uv.lock`, the canonical `justfile`, and no domain
 implementation code.
 
-Root docs are the source of truth for durable cross-domain project knowledge:
+Root docs are the source of truth for durable cross-domain project knowledge.
+Indexes are thin maps that route readers to focused docs rather than repeating
+their contents:
 
 - [design-docs/project-invariants.md](design-docs/project-invariants.md): repo-wide rules and doc-first workflow.
 - [design-docs/agent-workflow.md](design-docs/agent-workflow.md): canonical agent planning, exec-plan, validation, review, and commit workflow.
 - [design-docs/code-unit-design.md](design-docs/code-unit-design.md): implementation unit boundaries.
 - [product-specs/index.md](product-specs/index.md): product intent and workflow expectations.
 - [references/index.md](references/index.md): external references and target-site examples.
-- [exec-plans/index.md](exec-plans/index.md): resumable plans for substantial work.
+- [exec-plans/index.md](exec-plans/index.md): resumable execution records for substantial work.
 
 Package-local docs remain in `crawler/docs/` and `inspector/docs/`. They should
 map package source files, package-specific configuration, local behavior notes,

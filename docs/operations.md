@@ -25,7 +25,7 @@ Update that doc when setup, command discovery, or validation behavior changes.
 
 For qualifying agent work, create the active exec-plan as the first tracked
 implementation artifact after approval, before stable docs, code, or tests.
-Create and complete checked-in plans through the root harness:
+Create and complete checked-in execution records through the root harness:
 
 ```bash
 just exec-plan-new slug=short-name title='Human Title'
@@ -34,7 +34,8 @@ just exec-plan-complete slug=short-name
 
 Use [exec-plans/index.md](exec-plans/index.md) and
 [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for the lifecycle
-rules.
+rules. Durable ideas, design choices, and operating assumptions belong in the
+relevant stable docs before the exec-plan is completed.
 
 ## Crawl
 
