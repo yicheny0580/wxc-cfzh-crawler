@@ -1,8 +1,8 @@
 # Harness Design
 
-The root `justfile` is the public command harness for humans and Codex. It wraps
-lower-level Python, Scrapy, npm, and FastAPI commands so common workflows stay
-discoverable through one interface.
+The root `justfile` is the public command harness. It wraps lower-level Python,
+Scrapy, npm, and FastAPI commands so common workflows stay discoverable through
+one interface.
 
 ## Required Tools
 

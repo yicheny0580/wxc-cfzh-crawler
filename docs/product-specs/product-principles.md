@@ -11,8 +11,8 @@ hosted service.
   machine.
 - A researcher or reader who wants to search posts and replies while preserving
   the original thread context.
-- A maintainer or agent who needs a legible system with explicit docs, commands,
-  and validation loops.
+- A maintainer who needs a legible system with explicit docs, commands, and
+  validation loops.
 
 ## Product Priorities
 
@@ -24,8 +24,8 @@ hosted service.
   replies whenever the source page exposes that relationship.
 - Conservative operations: crawl controls should be explicit, progress should be
   visible, and refresh actions should not hide writes behind read-only views.
-- Agent legibility: product behavior should be discoverable from docs, commands,
-  tests, and source files inside the repo.
+- Maintainer legibility: product behavior should be discoverable from docs,
+  commands, tests, and source files inside the repo.
 
 ## UX Principles
 

@@ -6,6 +6,8 @@ or other implementation conventions.
 
 ## Source Of Truth
 
+- [agent-workflow.md](agent-workflow.md): agent planning, implementation,
+  validation, checked-in execution plans, and commit workflow.
 - [project-invariants.md](project-invariants.md): repo-wide invariants and the
   doc-first workflow.
 - [harness.md](harness.md): local setup, command harness, and validation flows.

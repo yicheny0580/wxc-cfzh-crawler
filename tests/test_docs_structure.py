@@ -15,6 +15,7 @@ DOCS = [
     ROOT / "docs" / "exec-plans" / "index.md",
     ROOT / "docs" / "exec-plans" / "template.md",
     ROOT / "docs" / "design-docs" / "index.md",
+    ROOT / "docs" / "design-docs" / "agent-workflow.md",
     ROOT / "docs" / "design-docs" / "project-invariants.md",
     ROOT / "docs" / "design-docs" / "harness.md",
     ROOT / "docs" / "design-docs" / "code-unit-design.md",
@@ -30,6 +31,7 @@ DOCS = [
 
 SOURCE_OF_TRUTH_LINKS = [
     "design-docs/index.md",
+    "design-docs/agent-workflow.md",
     "product-specs/index.md",
     "references/index.md",
     "exec-plans/index.md",
@@ -48,6 +50,15 @@ RETIRED_WXC_DOC_PHRASES = [
     f"{RETIRED_COMMAND} crawl",
     f"{RETIRED_COMMAND} export",
 ]
+
+CENTRALIZED_AGENT_PHRASES = [
+    "humans and codex",
+    "future agent",
+    "future agents",
+    "agent legibility",
+]
+
+AGENT_WORKFLOW_DOC = ROOT / "docs" / "design-docs" / "agent-workflow.md"
 
 
 def test_doc_map_files_exist() -> None:
@@ -69,8 +80,8 @@ def test_root_index_links_source_of_truth_sections() -> None:
     assert missing_links == []
 
 
-def test_exec_plan_index_requires_stable_doc_promotion() -> None:
-    content = (ROOT / "docs" / "exec-plans" / "index.md").read_text(encoding="utf-8")
+def test_agent_workflow_requires_stable_doc_promotion() -> None:
+    content = AGENT_WORKFLOW_DOC.read_text(encoding="utf-8").lower()
 
     assert "promote" in content
     assert "stable doc" in content
@@ -99,6 +110,20 @@ def test_docs_do_not_advertise_retired_wxc_cli() -> None:
         content = path.read_text(encoding="utf-8")
         for phrase in RETIRED_WXC_DOC_PHRASES:
             if phrase in content:
+                findings.append(f"{path.relative_to(ROOT)} contains {phrase!r}")
+
+    assert findings == []
+
+
+def test_agent_notes_stay_centralized() -> None:
+    findings: list[str] = []
+    for path in DOCS:
+        if path == AGENT_WORKFLOW_DOC:
+            continue
+        content = path.read_text(encoding="utf-8")
+        lower_content = content.lower()
+        for phrase in CENTRALIZED_AGENT_PHRASES:
+            if phrase in lower_content:
                 findings.append(f"{path.relative_to(ROOT)} contains {phrase!r}")
 
     assert findings == []

@@ -4,7 +4,7 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 
 ## Maps
 
-- [../justfile](../justfile): canonical root command harness for humans and Codex.
+- [../justfile](../justfile): canonical root command harness.
 - [architecture.md](architecture.md): repo structure, workspace model, and code ownership boundaries.
 - [operations.md](operations.md): local commands for crawl, export, inspect, and verification.
 - [quality.md](quality.md): tests, linting, docs checks, and quality expectations.
@@ -12,7 +12,7 @@ This directory is the root knowledge map. It follows the harness-engineering pat
 
 ## Source Of Truth
 
-- [design-docs/index.md](design-docs/index.md): engineering design docs, project invariants, harness setup, and code unit design.
+- [design-docs/index.md](design-docs/index.md): engineering design docs, agent workflow, project invariants, harness setup, and code unit design.
 - [product-specs/index.md](product-specs/index.md): product principles and supported crawler/inspector workflows.
 - [references/index.md](references/index.md): external references and target-site sample URLs.
 
@@ -30,9 +30,9 @@ architecture, command harness behavior, quality policy, references, and
 supported workflows. Child docs stay package-local: source maps, local config,
 package behavior, package checks, and links back to root sources of truth.
 
-Use [exec-plans/index.md](exec-plans/index.md) for resumable substantial work.
-When a plan discovers a durable rule or operating assumption, promote it into
-the relevant stable doc before marking the plan complete.
+Use [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for agent
+planning, implementation, checked-in execution plans, and stable-doc promotion
+rules.
 
 ## External Reference
 

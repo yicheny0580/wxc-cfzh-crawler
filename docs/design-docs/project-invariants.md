@@ -22,7 +22,7 @@ design.
   repository manual.
 - Prefer small focused docs over one large handbook. Add a new source-of-truth
   page only when an existing page would become ambiguous or overloaded.
-- Capture repeated review feedback as docs or tooling so future agent runs can
+- Capture repeated review feedback as docs or tooling so future maintainers can
   reuse the decision.
 - Keep durable cross-domain knowledge in root `docs/`: invariants, product
   intent, architecture, command behavior, quality policy, references, and
@@ -30,10 +30,8 @@ design.
 - Keep child docs under `crawler/docs/` and `inspector/docs/` as package-local
   maps and package behavior notes. Link back to root docs instead of duplicating
   cross-domain rules.
-- Treat `docs/exec-plans/` as first-class checked-in task state for substantial
-  work. Plans may hold progress and decision logs, but persistent rules,
-  invariants, and operating assumptions must be promoted into stable docs before
-  the plan is completed.
+- Agent planning, checked-in execution-plan lifecycle, and stable-doc promotion
+  rules live in [agent-workflow.md](agent-workflow.md).
 
 ## Repository Boundaries
 

@@ -30,17 +30,10 @@ Update the relevant docs index when adding:
 - a product workflow or product design assumption
 - a target-site reference or parsing assumption
 
-Use `docs/exec-plans/active/` for substantial work that must be resumable by a
-future agent, and move completed plans to `docs/exec-plans/completed/`. Durable
-invariants discovered while executing a plan must be promoted into stable docs
-before the plan is completed.
-
-Meaningful implementation starts by opening the relevant source-of-truth doc. If
-the change affects behavior, commands, APIs, runtime paths, workflows, product
-intent, target-site assumptions, or durable invariants, update docs first,
-implement second, then revise docs if implementation changes the final design.
-Purely mechanical changes may leave docs untouched only after confirming the
-existing docs already describe the intended behavior.
+Agent planning, checked-in execution-plan lifecycle, stable-doc promotion, and
+commit rules live in [design-docs/agent-workflow.md](design-docs/agent-workflow.md).
+Doc-first implementation rules live in
+[design-docs/project-invariants.md](design-docs/project-invariants.md).
 
 ## Code Expectations
 

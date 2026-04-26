@@ -1,8 +1,8 @@
 # Code Unit Design
 
-Code units should be small enough that future agents can inspect, modify, and
-test them without loading unrelated behavior. Prefer explicit boundaries over
-large files that mix parsing, storage, transport, and UI concerns.
+Code units should be small enough to inspect, modify, and test without loading
+unrelated behavior. Prefer explicit boundaries over large files that mix
+parsing, storage, transport, and UI concerns.
 
 ## Python Units
 

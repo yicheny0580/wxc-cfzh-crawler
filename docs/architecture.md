@@ -14,6 +14,7 @@ implementation code.
 Root docs are the source of truth for durable cross-domain project knowledge:
 
 - [design-docs/project-invariants.md](design-docs/project-invariants.md): repo-wide rules and doc-first workflow.
+- [design-docs/agent-workflow.md](design-docs/agent-workflow.md): agent planning, implementation, validation, and commit workflow.
 - [design-docs/code-unit-design.md](design-docs/code-unit-design.md): implementation unit boundaries.
 - [product-specs/index.md](product-specs/index.md): product intent and workflow expectations.
 - [references/index.md](references/index.md): external references and target-site examples.
@@ -30,9 +31,9 @@ The root `pyproject.toml` defines a `uv` workspace with these members:
 - `crawler`
 - `inspector/backend`
 
-The root `justfile` is the public command harness for humans and Codex. It
-orchestrates workspace setup, crawl, export, inspection, tests, linting, and
-frontend builds by calling the underlying package tools directly.
+The root `justfile` is the public command harness. It orchestrates workspace
+setup, crawl, export, inspection, tests, linting, and frontend builds by calling
+the underlying package tools directly.
 
 ## Boundaries
 
