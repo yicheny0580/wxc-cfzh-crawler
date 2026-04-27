@@ -22,13 +22,14 @@ Small one-turn changes do not need a checked-in execution plan.
   implementation approval and before stable docs, code, or tests. The active
   plan is the first tracked implementation artifact.
 - Use `just exec-plan-new slug=short-name title='Human Title'` to create the
-  active plan from [template.md](template.md).
+  active plan from [template.md](template.md). The helper prefixes the filename
+  with the current UTC date, yielding `YYYYMMDD-short-name.md`.
 - Keep the plan current with progress, decisions, and known follow-up work while
   it is active.
 - Move the plan to `completed/` after implementation, validation, human review,
   and an explicit good-to-commit signal.
-- Use `just exec-plan-complete slug=short-name` to move the active plan without
-  overwriting an existing completed plan.
+- Use `just exec-plan-complete slug=YYYYMMDD-short-name` to move the active
+  plan without overwriting an existing completed plan.
 - Follow [../design-docs/agent-workflow.md](../design-docs/agent-workflow.md)
   for stable-doc promotion before completing a plan.
 - A completed-only plan or a plan created after stable docs, code, or tests were
@@ -42,5 +43,10 @@ document placement and promotion rules live in
 
 ## Slugs
 
-Exec-plan slugs use lowercase letters, numbers, and single hyphens. The slug is
-the filename without `.md` and must be unique across both lifecycle directories.
+New exec-plan names use a UTC date prefix followed by a short slug:
+`YYYYMMDD-short-name.md`. Pass only the short slug to `exec-plan-new`; pass the
+full timestamped slug, without `.md`, to `exec-plan-complete`.
+
+Short slugs use lowercase letters, numbers, and single hyphens. Generated full
+slugs must be unique across both lifecycle directories. Existing completed
+plans without date prefixes remain historical records and are not renamed.

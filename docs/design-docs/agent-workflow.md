@@ -21,8 +21,8 @@ linked from here.
 - The plan must identify intended docs, code, tests, validation, commit scope,
   and known unrelated dirty files.
 - The plan must make an explicit exec-plan gate decision: either name the
-  intended active exec-plan slug for qualifying work, or state why the change is
-  small enough to skip a checked-in plan.
+  intended active exec-plan short slug for qualifying work, or state why the
+  change is small enough to skip a checked-in plan.
 - Do not implement the plan until the user approves implementation.
 - Approval to implement is not approval to commit. Phrases such as `implement
   the plan`, `apply the plan`, or `go ahead` authorize implementation and
@@ -73,6 +73,8 @@ completed before commit.
   code, or tests.
 - Prefer the harness helper when creating the active plan:
   `just exec-plan-new slug=short-name title='Human Title'`.
+  The helper prefixes the active-plan filename with the current UTC date:
+  `YYYYMMDD-short-name.md`.
 - If a task starts small but grows into that shape, stop and create or update
   the active exec-plan before continuing implementation.
 - Use [../exec-plans/index.md](../exec-plans/index.md) for the exec-plan
@@ -87,8 +89,8 @@ completed before commit.
 - Move completed plans from `docs/exec-plans/active/` to
   `docs/exec-plans/completed/` only after implementation, validation, and stable
   doc promotion are done.
-- Prefer `just exec-plan-complete slug=short-name` for the move so the helper
-  refuses missing active plans or completed-plan overwrites.
+- Prefer `just exec-plan-complete slug=YYYYMMDD-short-name` for the move so the
+  helper refuses missing active plans or completed-plan overwrites.
 
 ## Commit Flow
 

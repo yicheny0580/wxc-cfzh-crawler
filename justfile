@@ -484,13 +484,13 @@ lint-just:
 lint-lines:
     uv run python scripts/check_file_lines.py
 
-# Create an active exec-plan; options: slug= title=.
+# Create an active exec-plan; options: slug=short-name title=.
 exec-plan-new *options:
     #!/usr/bin/env bash
     set -euo pipefail
     uv run python scripts/manage_exec_plan.py new "$@"
 
-# Move an active exec-plan to completed; options: slug=.
+# Move an active exec-plan to completed; options: slug=YYYYMMDD-short-name.
 exec-plan-complete *options:
     #!/usr/bin/env bash
     set -euo pipefail

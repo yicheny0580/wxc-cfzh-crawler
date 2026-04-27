@@ -29,13 +29,15 @@ Create and complete checked-in execution records through the root harness:
 
 ```bash
 just exec-plan-new slug=short-name title='Human Title'
-just exec-plan-complete slug=short-name
+just exec-plan-complete slug=YYYYMMDD-short-name
 ```
 
 Use [exec-plans/index.md](exec-plans/index.md) and
 [design-docs/agent-workflow.md](design-docs/agent-workflow.md) for the lifecycle
-rules. Durable ideas, design choices, and operating assumptions belong in the
-relevant stable docs before the exec-plan is completed.
+rules. `exec-plan-new` adds the current UTC date to the filename; complete plans
+with the full timestamped slug. Durable ideas, design choices, and operating
+assumptions belong in the relevant stable docs before the exec-plan is
+completed.
 
 ## Crawl
 

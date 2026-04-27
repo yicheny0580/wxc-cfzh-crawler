@@ -28,7 +28,11 @@ here, then open the linked source of truth that matches the task.
 ## Repo Rules
 
 - Follow [docs/design-docs/agent-workflow.md](docs/design-docs/agent-workflow.md) for draft plans, approval, implementation, validation, and commits.
-- For substantial, corrective, handoff-prone, or workflow-policy work, create or update the active exec-plan with `just exec-plan-new slug=... title='...'` as the first tracked implementation artifact after approval, before stable docs, code, or tests.
+- For substantial, corrective, handoff-prone, or workflow-policy work, create or
+  update the active exec-plan with
+  `just exec-plan-new slug=short-name title='...'` as the first tracked
+  implementation artifact after approval, before stable docs, code, or tests.
+  The helper prefixes new plan filenames with the UTC date.
 - Keep maps and indexes thin. Put durable ideas, design choices, and operating
   rules in the relevant stable doc, not in `AGENTS.md` or an exec-plan.
 - Keep domain code in `crawler/` or `inspector/`; keep local runtime outputs in ignored `data/`.

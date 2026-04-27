@@ -47,11 +47,13 @@ implementation artifact after approval, before stable docs, code, or tests:
 
 ```bash
 just exec-plan-new slug=short-name title='Human Title'
-just exec-plan-complete slug=short-name
+just exec-plan-complete slug=YYYYMMDD-short-name
 ```
 
 The helper creates active plans from `docs/exec-plans/template.md`, validates
-slug shape, and refuses to overwrite existing active or completed plans.
+slug shape, prefixes new plan filenames with the current UTC date, and refuses
+to overwrite existing active or completed plans. Pass only the short slug to
+`exec-plan-new`; pass the full timestamped slug to `exec-plan-complete`.
 The lifecycle source of truth is [agent-workflow.md](agent-workflow.md).
 Exec-plans preserve execution and resume state; durable design choices and
 operating rules belong in stable docs.

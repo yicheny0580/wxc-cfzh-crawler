@@ -3,10 +3,12 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import NoReturn
 
-SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+SHORT_SLUG_PATTERN = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+TIMESTAMPED_SLUG_PATTERN = re.compile(r"^\d{8}-[a-z0-9]+(?:-[a-z0-9]+)*$")
 ACTIVE_DIR = Path("docs/exec-plans/active")
 COMPLETED_DIR = Path("docs/exec-plans/completed")
 TEMPLATE_PATH = Path("docs/exec-plans/template.md")
@@ -17,10 +19,22 @@ class ExecPlanError(ValueError):
     pass
 
 
-def validate_slug(slug: str) -> str:
-    if not SLUG_PATTERN.fullmatch(slug):
+def validate_short_slug(slug: str) -> str:
+    if not SHORT_SLUG_PATTERN.fullmatch(slug):
         raise ExecPlanError(
-            "Exec-plan slug must use lowercase letters, numbers, and single hyphens."
+            "Exec-plan short slug must use lowercase letters, numbers, and single hyphens."
+        )
+    if TIMESTAMPED_SLUG_PATTERN.fullmatch(slug):
+        raise ExecPlanError(
+            "Exec-plan new slug must be the short name; the helper adds the UTC date prefix."
+        )
+    return slug
+
+
+def validate_timestamped_slug(slug: str) -> str:
+    if not TIMESTAMPED_SLUG_PATTERN.fullmatch(slug):
+        raise ExecPlanError(
+            "Exec-plan slug must include a UTC date prefix: YYYYMMDD-short-name."
         )
     return slug
 
@@ -35,7 +49,16 @@ def validate_title(title: str) -> str:
 
 
 def plan_path(root: Path, directory: Path, slug: str) -> Path:
-    return root / directory / f"{validate_slug(slug)}.md"
+    return root / directory / f"{validate_timestamped_slug(slug)}.md"
+
+
+def utc_today() -> date:
+    return datetime.now(UTC).date()
+
+
+def timestamp_slug(short_slug: str, created_on: date | None = None) -> str:
+    plan_date = created_on if created_on is not None else utc_today()
+    return f"{plan_date:%Y%m%d}-{validate_short_slug(short_slug)}"
 
 
 def render_plan(root: Path, title: str) -> str:
@@ -46,9 +69,10 @@ def render_plan(root: Path, title: str) -> str:
     return template.replace(heading, f"# {validate_title(title)}", 1)
 
 
-def create_plan(root: Path, slug: str, title: str) -> Path:
-    active_path = plan_path(root, ACTIVE_DIR, slug)
-    completed_path = plan_path(root, COMPLETED_DIR, slug)
+def create_plan(root: Path, slug: str, title: str, created_on: date | None = None) -> Path:
+    full_slug = timestamp_slug(slug, created_on)
+    active_path = plan_path(root, ACTIVE_DIR, full_slug)
+    completed_path = plan_path(root, COMPLETED_DIR, full_slug)
     if active_path.exists():
         raise ExecPlanError(f"Active exec-plan already exists: {active_path.relative_to(root)}")
     if completed_path.exists():
@@ -107,13 +131,13 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     new_parser = subparsers.add_parser("new", help="Create an active exec-plan.")
-    new_parser.add_argument("options", nargs="*", help="Use slug=... title=... options.")
+    new_parser.add_argument("options", nargs="*", help="Use slug=short-name title=... options.")
 
     complete_parser = subparsers.add_parser(
         "complete",
         help="Move an active exec-plan to completed.",
     )
-    complete_parser.add_argument("options", nargs="*", help="Use slug=... option.")
+    complete_parser.add_argument("options", nargs="*", help="Use slug=YYYYMMDD-short-name option.")
 
     return parser
 
