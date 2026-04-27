@@ -11,7 +11,9 @@ Actions CI, and a manual deploy workflow.
   data from SQLite; it must not start or stop crawls.
 - Crawling in production is managed by SSH/CLI operations and the scheduler
   container.
-- The scheduler runs every 120 seconds with `pages=2` by default.
+- The scheduler runs every 120 seconds with `pages=2` by default. Deployment
+  config may override those values with `WXC_SCHEDULER_INTERVAL` and
+  `WXC_SCHEDULER_PAGES`.
 - Manual and scheduled crawls share one lock under the runtime data directory so
   only one crawler process runs at a time.
 - SQLite remains the data store. Do not add a managed database, load balancer,
@@ -113,16 +115,50 @@ just docker-local-down
 
 CI runs automatically on push and pull request. Production deploy is manual in
 v1 and uses `workflow_dispatch`; it is not triggered by every push and does not
-yet deploy from tags. A future tag-triggered deploy can reuse the same workflow
-after the manual path is proven.
+yet deploy from tags. The manual workflow does not require a GitHub environment
+approval gate by default. A future tag-triggered deploy can reuse the same
+workflow after the manual path is proven.
 
 The CI workflow sets up Python 3.13 and Node 24 before running the root
 validation harness.
 
 The deploy workflow builds and pushes a public GHCR image, connects to the VPS
-over SSH, then runs Docker Compose pull/up in the configured deployment
-directory. Use workflow concurrency so overlapping manual deploys do not race.
-The workflow creates the deployment data directory before starting Compose.
+over SSH, writes the VPS Compose `.env`, then runs Docker Compose validation and
+pull/up in the configured deployment directory. Use workflow concurrency so
+overlapping manual deploys do not race. The workflow creates the deployment and
+data directories before starting Compose, then checks container-local and public
+health endpoints.
+
+GitHub repository variables provide non-secret deployment config:
+
+```bash
+WXC_DEPLOY_HOST=example.com
+WXC_DEPLOY_USER=deploy
+WXC_DEPLOY_PATH=/opt/wxc-cfzh
+WXC_PUBLIC_HOST=cfzh.example.com
+WXC_DATA_DIR=./data
+WXC_SCHEDULER_INTERVAL=120
+WXC_SCHEDULER_PAGES=2
+```
+
+`WXC_DATA_DIR`, `WXC_SCHEDULER_INTERVAL`, and `WXC_SCHEDULER_PAGES` are
+optional and default to `./data`, `120`, and `2`. The deploy workflow writes
+these values plus the built `WXC_IMAGE` into `${WXC_DEPLOY_PATH}/.env` on the
+VPS so Compose reads one deployment config file.
+
+GitHub repository secrets provide SSH material:
+
+```bash
+WXC_DEPLOY_SSH_KEY=<private key for the deploy user>
+WXC_DEPLOY_KNOWN_HOSTS=<pinned SSH known_hosts entry>
+```
+
+Populate `WXC_DEPLOY_KNOWN_HOSTS` with the trusted host key entry for the VPS,
+for example from `ssh-keyscan -H "$WXC_DEPLOY_HOST"` after independently
+verifying the server identity. The workflow intentionally avoids runtime
+`ssh-keyscan` so each deploy uses pinned host trust. Keep these values at the
+repository level for the default workflow so no GitHub environment approval gate
+is involved.
 
 ## SSH Operations
 

@@ -106,7 +106,9 @@ The personal public deployment uses Docker Compose on a VPS. The durable
 deployment source of truth is [deployment.md](deployment.md).
 
 Production deploy is manual in v1 through GitHub Actions `workflow_dispatch`.
-CI stays automatic on push and pull request.
+CI stays automatic on push and pull request. Deployment config is managed by
+GitHub variables and secrets; the workflow writes the VPS Compose `.env` during
+deploy.
 
 Local SSH operations load the untracked `.env.deploy` file by default:
 

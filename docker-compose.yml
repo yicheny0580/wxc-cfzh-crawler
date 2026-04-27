@@ -27,7 +27,16 @@ services:
   scheduler:
     image: ${WXC_IMAGE:-ghcr.io/example/wxc-cfzh-crawler:latest}
     restart: unless-stopped
-    command: ["wxc-cfzh-admin", "scheduler", "run", "--interval", "120", "--pages", "2"]
+    command:
+      [
+        "wxc-cfzh-admin",
+        "scheduler",
+        "run",
+        "--interval",
+        "${WXC_SCHEDULER_INTERVAL:-120}",
+        "--pages",
+        "${WXC_SCHEDULER_PAGES:-2}",
+      ]
     environment:
       WXC_ADMIN_DB: /data/crawler.sqlite3
       WXC_ADMIN_DATA_DIR: /data
