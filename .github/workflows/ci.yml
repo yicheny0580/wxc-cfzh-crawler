@@ -8,17 +8,17 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v6.0.2
+      - uses: actions/setup-python@v6.2.0
         with:
           python-version: "3.13"
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6.4.0
         with:
-          node-version: "22"
+          node-version: "24"
           cache: npm
           cache-dependency-path: inspector/frontend/package-lock.json
-      - uses: astral-sh/setup-uv@v5
-      - uses: extractions/setup-just@v2
+      - uses: astral-sh/setup-uv@v8.1.0
+      - uses: extractions/setup-just@v4
       - run: uv sync
       - run: npm --prefix inspector/frontend ci
       - run: just check

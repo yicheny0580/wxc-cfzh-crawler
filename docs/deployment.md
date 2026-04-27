@@ -116,6 +116,9 @@ v1 and uses `workflow_dispatch`; it is not triggered by every push and does not
 yet deploy from tags. A future tag-triggered deploy can reuse the same workflow
 after the manual path is proven.
 
+The CI workflow sets up Python 3.13 and Node 24 before running the root
+validation harness.
+
 The deploy workflow builds and pushes a public GHCR image, connects to the VPS
 over SSH, then runs Docker Compose pull/up in the configured deployment
 directory. Use workflow concurrency so overlapping manual deploys do not race.
