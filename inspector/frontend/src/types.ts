@@ -3,6 +3,7 @@ export interface HealthResponse {
   db_path: string;
   db_exists: boolean;
   read_only: boolean;
+  public_mode: boolean;
   detail: string | null;
 }
 

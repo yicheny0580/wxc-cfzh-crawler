@@ -1,0 +1,13 @@
+.git
+.github
+.pytest_cache
+.ruff_cache
+.scrapy
+.venv
+data
+inspector/backend/.venv
+inspector/frontend/dist
+inspector/frontend/node_modules
+**/__pycache__
+*.sqlite3
+*.db

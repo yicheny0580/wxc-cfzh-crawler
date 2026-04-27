@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { CrawlControls } from "./CrawlControls";
 import { FilterPanel } from "./FilterPanel";
+import { PublicRefreshButton } from "./PublicRefreshButton";
 import { ResizableInspectorLayout } from "./ResizableInspectorLayout";
 import { PAGE_SIZE, Pagination, ResultList } from "./Results";
 import { ReaderPane, type FocusRequest } from "./Reader";
@@ -66,6 +67,7 @@ function App() {
   selectedPostRef.current = selectedPost;
 
   const { includePosts, includeReplies } = resultTypeFilter;
+  const publicMode = health?.public_mode ?? false;
   const { publishedFrom, publishedTo } = publishedTimeRange(publishedTimeFilter);
   const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
@@ -80,7 +82,7 @@ function App() {
     start: handleStartCrawl,
     status: crawlStatus,
     stop: handleStopCrawl
-  } = useCrawlStatus(refreshAfterCrawl);
+  } = useCrawlStatus(refreshAfterCrawl, Boolean(health && !health.public_mode));
 
   async function refreshOverview() {
     setError(null);
@@ -301,13 +303,22 @@ function App() {
                 {health?.db_path || summary?.db_path || "SQLite database"}
               </p>
             </div>
-            <CrawlControls
-              status={crawlStatus}
-              error={crawlError}
-              actionLoading={crawlActionLoading}
-              onStart={handleStartCrawl}
-              onStop={handleStopCrawl}
-            />
+            {health ? (
+              publicMode ? (
+                <PublicRefreshButton
+                  loading={refreshingAfterCrawl}
+                  onRefresh={refreshAfterCrawl}
+                />
+              ) : (
+                <CrawlControls
+                  status={crawlStatus}
+                  error={crawlError}
+                  actionLoading={crawlActionLoading}
+                  onStart={handleStartCrawl}
+                  onStop={handleStopCrawl}
+                />
+              )
+            ) : null}
           </div>
           {error ? <ErrorBanner message={error} /> : null}
         </div>

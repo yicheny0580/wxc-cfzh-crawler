@@ -15,6 +15,8 @@ REPLY_COLUMNS = """
     forum_order, crawled_at
 """
 
+MIN_SEARCH_LENGTH = 3
+
 
 def row_to_dict(row: sqlite3.Row) -> dict[str, object]:
     item = dict(row)
@@ -33,8 +35,23 @@ def compact_excerpt(value: str | None, limit: int = 220) -> str | None:
     return f"{compacted[: limit - 1].rstrip()}..."
 
 
-def search_pattern(search: str) -> str:
-    return f"%{search.strip().lower()}%"
+def fts_query(search: str | None) -> str | None:
+    if search is None:
+        return None
+
+    terms = [term for term in search.strip().split() if term]
+    if not terms:
+        return None
+
+    short_terms = [term for term in terms if len(term) < MIN_SEARCH_LENGTH]
+    if short_terms:
+        raise ValueError(f"Search terms must be at least {MIN_SEARCH_LENGTH} characters.")
+
+    quoted_terms = []
+    for term in terms:
+        escaped = term.replace('"', '""')
+        quoted_terms.append(f'"{escaped}"')
+    return " ".join(quoted_terms)
 
 
 def add_published_date_filters(
@@ -67,18 +84,16 @@ def post_filters(
     clauses: list[str] = []
     params: list[object] = []
 
-    if search and search.strip():
+    query = fts_query(search)
+    if query:
         clauses.append(
             """
-            (
-                LOWER(COALESCE(p.title, '')) LIKE ?
-                OR LOWER(COALESCE(p.body_text, '')) LIKE ?
-                OR LOWER(COALESCE(p.author, '')) LIKE ?
+            p.post_id IN (
+                SELECT post_id FROM posts_fts WHERE posts_fts MATCH ?
             )
             """
         )
-        pattern = search_pattern(search)
-        params.extend([pattern, pattern, pattern])
+        params.append(query)
 
     if author and author.strip():
         clauses.append("p.author = ?")
@@ -108,18 +123,25 @@ def record_filters(
     clauses: list[str] = []
     params: list[object] = []
 
-    if search and search.strip():
+    query = fts_query(search)
+    if query and alias == "p":
         clauses.append(
-            f"""
-            (
-                LOWER(COALESCE({alias}.title, '')) LIKE ?
-                OR LOWER(COALESCE({alias}.body_text, '')) LIKE ?
-                OR LOWER(COALESCE({alias}.author, '')) LIKE ?
+            """
+            p.post_id IN (
+                SELECT post_id FROM posts_fts WHERE posts_fts MATCH ?
             )
             """
         )
-        pattern = search_pattern(search)
-        params.extend([pattern, pattern, pattern])
+        params.append(query)
+    elif query and alias == "r":
+        clauses.append(
+            """
+            r.reply_id IN (
+                SELECT reply_id FROM replies_fts WHERE replies_fts MATCH ?
+            )
+            """
+        )
+        params.append(query)
 
     if author and author.strip():
         clauses.append(f"{alias}.author = ?")

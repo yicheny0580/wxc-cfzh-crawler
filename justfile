@@ -205,6 +205,90 @@ inspect-api *options:
     fi
     uv run --package wxc-cfzh-inspector-backend uvicorn "${args[@]}"
 
+# Show production crawl/scheduler status over SSH; options: host= path=.
+ops-status *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/ops_remote.sh "$@" -- \
+      docker compose exec -T scheduler wxc-cfzh-admin status --json
+
+# Start a manual production crawl over SSH; options: pages=2 host= path=.
+ops-refresh *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pages=2
+    pass=()
+    for option in "$@"; do
+      case "$option" in
+        pages=*|--pages=*) pages="${option#*=}" ;;
+        host=*|--host=*|path=*|--path=*) pass+=("$option") ;;
+        *)
+          echo "Unknown ops-refresh option: $option" >&2
+          echo "Use key=value options: pages=, host=, path=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    bash scripts/ops_remote.sh "${pass[@]}" -- \
+      docker compose exec -T scheduler wxc-cfzh-admin refresh --pages "$pages" --reason manual
+
+# Stop a production crawl over SSH; options: host= path=.
+ops-stop-crawl *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/ops_remote.sh "$@" -- \
+      docker compose exec -T scheduler wxc-cfzh-admin stop --wait --force-after 30
+
+# Pause production scheduled crawls over SSH; options: host= path=.
+ops-scheduler-pause *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/ops_remote.sh "$@" -- \
+      docker compose exec -T scheduler wxc-cfzh-admin scheduler pause
+
+# Resume production scheduled crawls over SSH; options: host= path=.
+ops-scheduler-resume *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/ops_remote.sh "$@" -- \
+      docker compose exec -T scheduler wxc-cfzh-admin scheduler resume
+
+# Show production Docker logs over SSH; options: service=scheduler tail=200 follow=false host= path=.
+ops-logs *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    service=scheduler
+    tail=200
+    follow=false
+    pass=()
+    for option in "$@"; do
+      case "$option" in
+        service=*|--service=*) service="${option#*=}" ;;
+        tail=*|--tail=*) tail="${option#*=}" ;;
+        follow=*|--follow=*) follow="${option#*=}" ;;
+        --follow) follow=true ;;
+        host=*|--host=*|path=*|--path=*) pass+=("$option") ;;
+        *)
+          echo "Unknown ops-logs option: $option" >&2
+          echo "Use key=value options: service=, tail=, follow=, host=, path=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    args=(docker compose logs --tail "$tail")
+    if [[ "$follow" == "true" ]]; then
+      args+=(--follow)
+    fi
+    args+=("$service")
+    bash scripts/ops_remote.sh "${pass[@]}" -- "${args[@]}"
+
+# Print production diagnostics over SSH; options: host= path=.
+ops-report *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    bash scripts/ops_remote.sh "$@" -- bash -lc \
+      "docker compose ps && docker system df && docker compose exec -T scheduler wxc-cfzh-admin report && docker compose logs --tail 80 web scheduler"
+
 # Run root quality-tool tests.
 test-root:
     uv run pytest tests

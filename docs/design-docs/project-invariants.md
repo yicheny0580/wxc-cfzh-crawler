@@ -60,9 +60,13 @@ design.
 - Inspector code owns read-only SQLite inspection, FastAPI routes, React UI, and
   the controlled crawl refresh trigger.
 - Crawler code must not import inspector code.
-- Inspector query endpoints must open SQLite read-only. The only inspector write
-  path is the refresh control that starts the crawler subprocess against the
-  inspected database.
+- Inspector query endpoints must open SQLite read-only. In local-development
+  mode, the only inspector write path is the refresh control that starts the
+  crawler subprocess against the inspected database. In public deployment mode,
+  browser-accessible crawl start/stop routes are disabled and production
+  crawling is owned by SSH/CLI operations plus the scheduler service.
+- Manual and scheduled production crawls must share a runtime lock so only one
+  crawler process writes the SQLite database at a time.
 
 ## Data And Target Site
 

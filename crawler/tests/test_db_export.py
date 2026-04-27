@@ -72,6 +72,43 @@ def test_sqlite_reply_upsert_is_idempotent(tmp_path) -> None:
     assert rows[0]["title"] == "Reply A updated"
 
 
+def test_search_index_tracks_post_and_reply_upserts(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+
+    upsert_post(
+        conn,
+        ForumPost(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            title="Apple setup",
+            body_text="Market structure notes.",
+        ),
+    )
+    upsert_reply(
+        conn,
+        ForumReply(
+            reply_id="101",
+            root_post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/101.html",
+            title="Nested reply",
+            body_text="Rotation chart",
+            depth=1,
+        ),
+    )
+
+    post_rows = conn.execute(
+        "SELECT post_id FROM posts_fts WHERE posts_fts MATCH ?",
+        ('"apple"',),
+    ).fetchall()
+    reply_rows = conn.execute(
+        "SELECT reply_id FROM replies_fts WHERE replies_fts MATCH ?",
+        ('"rotation"',),
+    ).fetchall()
+
+    assert [row["post_id"] for row in post_rows] == ["100"]
+    assert [row["reply_id"] for row in reply_rows] == ["101"]
+
+
 def test_frontier_claim_and_done_transition(tmp_path) -> None:
     conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
     upsert_frontier_entry(

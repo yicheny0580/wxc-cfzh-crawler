@@ -1,0 +1,70 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: Optional image tag suffix. Defaults to the commit SHA.
+        required: false
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository }}
+      DEPLOY_HOST: ${{ secrets.WXC_DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.WXC_DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.WXC_DEPLOY_PATH }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute image tag
+        id: tag
+        shell: bash
+        run: |
+          suffix="${{ github.event.inputs.image_tag }}"
+          if [[ -z "$suffix" ]]; then
+            suffix="sha-${GITHUB_SHA}"
+          fi
+          echo "image=${IMAGE_NAME}:${suffix}" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.tag.outputs.image }}
+            ${{ env.IMAGE_NAME }}:latest
+      - name: Configure SSH
+        shell: bash
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "${{ secrets.WXC_DEPLOY_SSH_KEY }}" > ~/.ssh/wxc-cfzh
+          chmod 600 ~/.ssh/wxc-cfzh
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+      - name: Upload Compose files
+        shell: bash
+        run: |
+          target="${DEPLOY_USER}@${DEPLOY_HOST}"
+          ssh -i ~/.ssh/wxc-cfzh "$target" "mkdir -p '${DEPLOY_PATH}'"
+          scp -i ~/.ssh/wxc-cfzh docker-compose.yml Caddyfile "$target:${DEPLOY_PATH}/"
+      - name: Deploy image
+        shell: bash
+        run: |
+          target="${DEPLOY_USER}@${DEPLOY_HOST}"
+          image="${{ steps.tag.outputs.image }}"
+          ssh -i ~/.ssh/wxc-cfzh "$target" \
+            "cd '${DEPLOY_PATH}' && WXC_IMAGE='${image}' docker compose pull && WXC_IMAGE='${image}' docker compose up -d && docker image prune -f"

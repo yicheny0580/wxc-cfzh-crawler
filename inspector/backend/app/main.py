@@ -34,6 +34,7 @@ from app.schemas import (
     ResultListResponse,
     SummaryResponse,
 )
+from app.settings import display_db_path, inspect_public_mode
 
 app = FastAPI(title="WXC CFZH SQLite Inspector")
 
@@ -73,14 +74,32 @@ def validate_published_filters(
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
+def validate_search(search: str | None) -> str | None:
+    try:
+        from app._db_helpers import fts_query
+
+        fts_query(search)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return search
+
+
+def require_crawl_controls_enabled() -> None:
+    if inspect_public_mode():
+        raise HTTPException(status_code=404, detail="Crawl controls are disabled.")
+
+
 @app.get("/api/health", response_model=HealthResponse)
 async def health() -> HealthResponse:
     db_path = resolve_db_path()
+    public_mode = inspect_public_mode()
+    display_path = display_db_path(str(db_path))
     if not db_path.exists():
         return HealthResponse(
             ok=False,
-            db_path=str(db_path),
+            db_path=display_path,
             db_exists=False,
+            public_mode=public_mode,
             detail="SQLite database does not exist.",
         )
 
@@ -90,20 +109,28 @@ async def health() -> HealthResponse:
     except sqlite3.Error as exc:
         return HealthResponse(
             ok=False,
-            db_path=str(db_path),
+            db_path=display_path,
             db_exists=True,
+            public_mode=public_mode,
             detail=str(exc),
         )
     finally:
         if "conn" in locals():
             conn.close()
 
-    return HealthResponse(ok=True, db_path=str(db_path), db_exists=True)
+    return HealthResponse(
+        ok=True,
+        db_path=display_path,
+        db_exists=True,
+        public_mode=public_mode,
+    )
 
 
 @app.get("/api/summary", response_model=SummaryResponse)
 async def summary(conn: Connection) -> dict[str, object]:
-    return fetch_summary(conn)
+    payload = fetch_summary(conn)
+    payload["db_path"] = display_db_path(str(payload["db_path"]))
+    return payload
 
 
 @app.get("/api/authors", response_model=list[AuthorSummary])
@@ -122,6 +149,7 @@ async def posts(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    search = validate_search(search)
     from_text, before_text = validate_published_filters(
         published_from,
         published_to,
@@ -151,6 +179,7 @@ async def results(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
+    search = validate_search(search)
     from_text, before_text = validate_published_filters(
         published_from,
         published_to,
@@ -180,11 +209,13 @@ async def post_detail(post_id: str, conn: Connection) -> dict[str, object]:
 
 @app.get("/api/crawl/status", response_model=CrawlStatusResponse)
 async def crawl_status() -> CrawlStatusResponse:
+    require_crawl_controls_enabled()
     return crawl_manager.status()
 
 
 @app.post("/api/crawl", response_model=CrawlStatusResponse)
 async def start_crawl(request: CrawlStartRequest) -> CrawlStatusResponse:
+    require_crawl_controls_enabled()
     started, status = await crawl_manager.start(pages=request.pages)
     if not started:
         raise HTTPException(status_code=409, detail=status.model_dump(mode="json"))
@@ -193,11 +224,15 @@ async def start_crawl(request: CrawlStartRequest) -> CrawlStatusResponse:
 
 @app.post("/api/crawl/stop", response_model=CrawlStatusResponse)
 async def stop_crawl() -> CrawlStatusResponse:
+    require_crawl_controls_enabled()
     return await crawl_manager.stop()
 
 
 @app.websocket("/api/crawl/ws")
 async def crawl_websocket(websocket: WebSocket) -> None:
+    if inspect_public_mode():
+        await websocket.close(code=1008, reason="Crawl controls are disabled.")
+        return
     await crawl_manager.subscribe(websocket)
 
 

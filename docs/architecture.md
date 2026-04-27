@@ -6,6 +6,9 @@ The repository is organized around three domains:
 - `inspector/`: SQLite inspector with FastAPI backend, React frontend, and a controlled
   crawler refresh trigger.
 - `data/`: ignored local runtime data, including SQLite databases and exports.
+- Docker deployment files at the repository root: production image, Compose
+  topology, and manual CI/CD workflow entry points for the personal public
+  deployment.
 
 The root is the workspace control plane. It contains thin docs, the root
 `pyproject.toml`, the shared `uv.lock`, the canonical `justfile`, and no domain
@@ -21,6 +24,8 @@ their contents:
 - [product-specs/index.md](product-specs/index.md): product intent and workflow expectations.
 - [references/index.md](references/index.md): external references and target-site examples.
 - [exec-plans/index.md](exec-plans/index.md): resumable execution records for substantial work.
+- [deployment.md](deployment.md): cloud deployment topology, SSH operations,
+  scheduler behavior, and cost guardrails.
 
 Package-local docs remain in `crawler/docs/` and `inspector/docs/`. They should
 map package source files, package-specific configuration, local behavior notes,
@@ -41,7 +46,10 @@ the underlying package tools directly.
 
 - Crawler code must not import inspector code.
 - Inspector query endpoints read the SQLite database in read-only mode. The only inspector
-  write path is the crawl refresh control, which starts the crawler package as a subprocess.
+  local-development write path is the crawl refresh control, which starts the crawler package
+  as a subprocess. Public deployment mode disables browser-accessible crawl start/stop routes.
+- Production crawling is owned by the crawler admin CLI and scheduler service.
+  Manual and scheduled refreshes must share one runtime lock so crawls do not overlap.
 - Shared local data paths should resolve to root `data/` unless explicitly overridden.
 - User-facing workflows should be added to the root `justfile` before adding README-only command recipes.
 - Changes to boundaries, package ownership, or public interfaces should follow

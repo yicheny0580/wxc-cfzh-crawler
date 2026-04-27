@@ -84,4 +84,7 @@ Python tests, and the frontend build.
   static UI.
 - `just inspect-api` skips the frontend build for backend-only troubleshooting.
 - The inspector refresh control starts a crawler subprocess; it is the only
-  inspector workflow allowed to write crawler data.
+  inspector workflow allowed to write crawler data in local-development mode.
+- Production SSH operations use `just ops-*` recipes. These recipes load
+  `.env.deploy` by default and call Docker Compose plus the in-container
+  `wxc-cfzh-admin` CLI on the VPS.

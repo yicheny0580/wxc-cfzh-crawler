@@ -36,6 +36,7 @@ just export-reddit
 - [docs/index.md](docs/index.md): thin root documentation map.
 - [docs/design-docs/index.md](docs/design-docs/index.md): agent workflow, project invariants, harness design, and code unit design.
 - [docs/product-specs/index.md](docs/product-specs/index.md): product principles and supported workflows.
+- [docs/deployment.md](docs/deployment.md): Docker, manual deploy, VPS operations, and cost guardrails.
 - [docs/references/index.md](docs/references/index.md): external references and target-site examples.
 - [docs/exec-plans/index.md](docs/exec-plans/index.md): checked-in execution records for substantial work.
 - [crawler/](crawler/): Scrapy crawler, SQLite persistence, export logic, and crawler tests.

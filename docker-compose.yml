@@ -1,0 +1,66 @@
+services:
+  web:
+    image: ${WXC_IMAGE:-ghcr.io/example/wxc-cfzh-crawler:latest}
+    restart: unless-stopped
+    environment:
+      WXC_INSPECT_PUBLIC: "1"
+      WXC_INSPECT_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DATA_DIR: /data
+    volumes:
+      - wxc-data:/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/api/health', timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  scheduler:
+    image: ${WXC_IMAGE:-ghcr.io/example/wxc-cfzh-crawler:latest}
+    restart: unless-stopped
+    command: ["wxc-cfzh-admin", "scheduler", "run", "--interval", "120", "--pages", "2"]
+    environment:
+      WXC_ADMIN_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DATA_DIR: /data
+      WXC_PROGRESS: "off"
+    volumes:
+      - wxc-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  proxy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      WXC_PUBLIC_HOST: ${WXC_PUBLIC_HOST:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+volumes:
+  wxc-data:
+  caddy-data:
+  caddy-config:

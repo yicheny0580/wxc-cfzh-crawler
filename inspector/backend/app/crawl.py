@@ -200,7 +200,16 @@ class CrawlManager:
         try:
             await websocket.send_json(self.status().model_dump(mode="json"))
             while True:
-                status = await queue.get()
+                try:
+                    message = await asyncio.wait_for(websocket.receive(), timeout=1.0)
+                    if message["type"] == "websocket.disconnect":
+                        break
+                except TimeoutError:
+                    pass
+                try:
+                    status = queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    status = self.status()
                 await websocket.send_json(status.model_dump(mode="json"))
         except WebSocketDisconnect:
             return

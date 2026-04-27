@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Iterable
 
 from wxc_cfzh_crawler._db_frontier import mark_frontier_done, upsert_frontier_entry
+from wxc_cfzh_crawler._db_search import upsert_post_search, upsert_reply_search
 from wxc_cfzh_crawler._db_time import dt_to_text
 from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
 
@@ -53,6 +54,7 @@ def upsert_post(
             post.crawled_at.isoformat(),
         ),
     )
+    upsert_post_search(conn, post)
     if commit:
         conn.commit()
 
@@ -109,6 +111,7 @@ def upsert_reply(
             reply.crawled_at.isoformat(),
         ),
     )
+    upsert_reply_search(conn, reply)
     if commit:
         conn.commit()
 

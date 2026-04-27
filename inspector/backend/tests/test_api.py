@@ -7,7 +7,6 @@ from pathlib import Path
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from app.crawl import CrawlManager
 from app.main import app
@@ -57,6 +56,21 @@ class FakeSubprocessFactory:
         self.commands.append((command, kwargs))
         self.processes.append(process)
         return process
+
+
+class FakeWebSocket:
+    def __init__(self) -> None:
+        self.accepted = False
+        self.sent: list[dict[str, object]] = []
+
+    async def accept(self) -> None:
+        self.accepted = True
+
+    async def send_json(self, payload: dict[str, object]) -> None:
+        self.sent.append(payload)
+
+    async def receive(self) -> dict[str, str]:
+        return {"type": "websocket.disconnect"}
 
 
 async def wait_for_crawl_state(manager: CrawlManager, state: str) -> None:
@@ -110,6 +124,23 @@ def db_path(tmp_path: Path) -> Path:
             depth INTEGER NOT NULL DEFAULT 1,
             forum_order INTEGER,
             crawled_at TEXT NOT NULL
+        );
+
+        CREATE VIRTUAL TABLE posts_fts USING fts5(
+            post_id UNINDEXED,
+            title,
+            author,
+            body_text,
+            tokenize = 'trigram'
+        );
+
+        CREATE VIRTUAL TABLE replies_fts USING fts5(
+            reply_id UNINDEXED,
+            root_post_id UNINDEXED,
+            title,
+            author,
+            body_text,
+            tokenize = 'trigram'
         );
         """
     )
@@ -228,6 +259,19 @@ def db_path(tmp_path: Path) -> Path:
             ),
         ],
     )
+    conn.execute(
+        """
+        INSERT INTO posts_fts(rowid, post_id, title, author, body_text)
+        SELECT CAST(post_id AS INTEGER), post_id, title, author, body_text FROM posts
+        """
+    )
+    conn.execute(
+        """
+        INSERT INTO replies_fts(rowid, reply_id, root_post_id, title, author, body_text)
+        SELECT CAST(reply_id AS INTEGER), reply_id, root_post_id, title, author, body_text
+        FROM replies
+        """
+    )
     conn.commit()
     conn.close()
     return path
@@ -266,6 +310,18 @@ async def crawl_client(
         if process.returncode is None:
             process.finish(0)
     await asyncio.sleep(0.02)
+
+
+@pytest.fixture()
+async def public_client(
+    monkeypatch: pytest.MonkeyPatch,
+    db_path: Path,
+) -> AsyncIterator[httpx.AsyncClient]:
+    monkeypatch.setenv("WXC_INSPECT_DB", str(db_path))
+    monkeypatch.setenv("WXC_INSPECT_PUBLIC", "1")
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as test_client:
+        yield test_client
 
 
 @pytest.mark.anyio
@@ -357,20 +413,46 @@ async def test_crawl_stop_reports_stopping_until_process_exits(
     assert final_response.json()["return_code"] == -15
 
 
-def test_crawl_websocket_sends_initial_status(
+@pytest.mark.anyio
+async def test_crawl_websocket_sends_initial_status(
     monkeypatch: pytest.MonkeyPatch,
     db_path: Path,
 ) -> None:
     monkeypatch.setenv("WXC_INSPECT_DB", str(db_path))
     manager = CrawlManager(subprocess_factory=FakeSubprocessFactory())
-    monkeypatch.setattr("app.main.crawl_manager", manager)
+    websocket = FakeWebSocket()
 
-    with TestClient(app) as client:
-        with client.websocket_connect("/api/crawl/ws") as websocket:
-            payload = websocket.receive_json()
+    await manager.subscribe(websocket)  # type: ignore[arg-type]
 
+    payload = websocket.sent[0]
+    assert websocket.accepted is True
     assert payload["state"] == "idle"
     assert payload["db_path"] == str(db_path)
+
+
+@pytest.mark.anyio
+async def test_public_mode_hides_db_path_and_blocks_crawl_controls(
+    public_client: httpx.AsyncClient,
+    db_path: Path,
+) -> None:
+    health_response = await public_client.get("/api/health")
+    summary_response = await public_client.get("/api/summary")
+    status_response = await public_client.get("/api/crawl/status")
+    start_response = await public_client.post("/api/crawl", json={})
+    stop_response = await public_client.post("/api/crawl/stop")
+
+    assert health_response.status_code == 200
+    assert health_response.json()["public_mode"] is True
+    assert health_response.json()["db_path"] == "SQLite database"
+    assert str(db_path) not in health_response.text
+
+    assert summary_response.status_code == 200
+    assert summary_response.json()["db_path"] == "SQLite database"
+    assert str(db_path) not in summary_response.text
+
+    assert status_response.status_code == 404
+    assert start_response.status_code == 404
+    assert stop_response.status_code == 404
 
 
 @pytest.mark.anyio
@@ -630,6 +712,14 @@ async def test_results_support_reply_search_and_pagination(client: httpx.AsyncCl
 
     assert empty_scope_response.status_code == 200
     assert empty_scope_response.json() == {"items": [], "total": 0, "limit": 50, "offset": 0}
+
+
+@pytest.mark.anyio
+async def test_search_rejects_too_short_terms(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/results", params={"search": "aa"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Search terms must be at least 3 characters."
 
 
 @pytest.mark.anyio

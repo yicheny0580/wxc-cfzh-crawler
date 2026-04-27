@@ -98,6 +98,39 @@ Backend-only startup is available for troubleshooting and skips the frontend bui
 just inspect-api
 ```
 
+## Deploy And Remote Operations
+
+The personal public deployment uses Docker Compose on a VPS. The durable
+deployment source of truth is [deployment.md](deployment.md).
+
+Production deploy is manual in v1 through GitHub Actions `workflow_dispatch`.
+CI stays automatic on push and pull request.
+
+Local SSH operations load the untracked `.env.deploy` file by default:
+
+```bash
+WXC_DEPLOY_HOST=deploy@example.com
+WXC_DEPLOY_PATH=/opt/wxc-cfzh
+```
+
+Remote operations are exposed through root recipes:
+
+```bash
+just ops-status
+just ops-refresh pages=2
+just ops-stop-crawl
+just ops-scheduler-pause
+just ops-scheduler-resume
+just ops-logs service=scheduler tail=200
+just ops-report
+```
+
+In production, browser refresh is read-only. Crawling is controlled by the
+in-container `wxc-cfzh-admin` CLI and the scheduler service. Manual and
+scheduled refreshes share one lock, so a scheduled tick skips while a manual
+crawl is active and manual refresh reports the active crawl when the scheduler
+already owns the lock.
+
 ## Verification
 
 ```bash

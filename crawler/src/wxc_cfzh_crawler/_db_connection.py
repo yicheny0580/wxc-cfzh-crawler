@@ -4,6 +4,8 @@ import sqlite3
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
+from wxc_cfzh_crawler._db_search import backfill_search_index, init_search_index
+
 
 def sqlite_path_from_url(database_url: str) -> Path:
     parsed = urlparse(database_url)
@@ -101,7 +103,9 @@ def init_db(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_frontier_root_post_id ON frontier(root_post_id);
         """
     )
+    init_search_index(conn)
     backfill_frontier(conn)
+    backfill_search_index(conn)
     conn.commit()
 
 

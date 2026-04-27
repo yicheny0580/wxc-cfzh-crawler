@@ -72,3 +72,18 @@ without pretending to replace the original forum.
 The inspector Refresh control can start a crawler run against the inspected
 database. Only one refresh run should execute per backend process. Stop requests
 should move the UI into a stopping state until the crawler subprocess exits.
+
+In public deployment mode, browser Refresh is read-only: it refetches the latest
+SQLite-backed API data and must not start or stop a crawler. Production crawl
+refresh is handled by SSH/CLI operations and by the scheduler service.
+
+## Production Operations
+
+The operator can manage the public deployment from the repository root through
+`just ops-*` recipes backed by the in-container `wxc-cfzh-admin` CLI. The
+operator can manually refresh, stop a running crawl, pause or resume the
+scheduler, inspect status, read logs, and generate a diagnostics report.
+
+Manual and scheduled production crawls share one lock. If a scheduled crawl is
+running, manual refresh reports the active crawl instead of starting another. If
+manual refresh is running, scheduled ticks skip and retry on the next interval.

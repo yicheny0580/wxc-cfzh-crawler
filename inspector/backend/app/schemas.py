@@ -11,6 +11,7 @@ class HealthResponse(BaseModel):
     db_path: str
     db_exists: bool
     read_only: bool = True
+    public_mode: bool = False
     detail: str | None = None
 
 

@@ -16,6 +16,7 @@ here, then open the linked source of truth that matches the task.
 - [docs/references/index.md](docs/references/index.md): external references and target-site examples.
 - [docs/architecture.md](docs/architecture.md): workspace layout and package boundaries.
 - [docs/operations.md](docs/operations.md): commands for crawl, export, inspect, and local checks.
+- [docs/deployment.md](docs/deployment.md): Docker, manual deploy, VPS operations, and cost guardrails.
 - [docs/quality.md](docs/quality.md): verification expectations and structural docs checks.
 
 ## Domain Docs

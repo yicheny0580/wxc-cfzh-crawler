@@ -5,7 +5,7 @@ import type { CrawlState, CrawlStatusResponse } from "./types";
 
 const FINAL_CRAWL_STATES: CrawlState[] = ["succeeded", "failed", "stopped"];
 
-export function useCrawlStatus(onTerminal: () => void) {
+export function useCrawlStatus(onTerminal: () => void, enabled: boolean) {
   const [status, setStatus] = useState<CrawlStatusResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -24,6 +24,14 @@ export function useCrawlStatus(onTerminal: () => void) {
   }
 
   useEffect(() => {
+    if (!enabled) {
+      setStatus(null);
+      setError(null);
+      setActionLoading(false);
+      lastState.current = null;
+      return;
+    }
+
     let active = true;
     let socket: WebSocket | null = null;
     let reconnectHandle: number | null = null;
@@ -69,7 +77,7 @@ export function useCrawlStatus(onTerminal: () => void) {
       }
       socket?.close();
     };
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
     const previous = lastState.current;
@@ -89,6 +97,10 @@ export function useCrawlStatus(onTerminal: () => void) {
   const start = (pages: number) => {
     setActionLoading(true);
     setError(null);
+    if (!enabled) {
+      setActionLoading(false);
+      return;
+    }
     startCrawl(pages)
       .then(applyStatus)
       .catch((err: unknown) => {
@@ -100,6 +112,10 @@ export function useCrawlStatus(onTerminal: () => void) {
   const stop = () => {
     setActionLoading(true);
     setError(null);
+    if (!enabled) {
+      setActionLoading(false);
+      return;
+    }
     stopCrawl()
       .then(applyStatus)
       .catch((err: unknown) => {

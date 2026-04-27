@@ -16,6 +16,8 @@ configuration, crawler behavior notes, and crawler checks.
 ## Source Map
 
 - [../src/wxc_cfzh_crawler/spiders/cfzh.py](../src/wxc_cfzh_crawler/spiders/cfzh.py): Scrapy spider and persistent frontier scheduling.
+- [../src/wxc_cfzh_crawler/admin_cli.py](../src/wxc_cfzh_crawler/admin_cli.py): production
+  SSH/admin CLI for manual refresh, scheduler management, status, logs, and diagnostics.
 - [../src/wxc_cfzh_crawler/parsing.py](../src/wxc_cfzh_crawler/parsing.py): HTML parsing for forum indexes, root posts, and replies.
 - [../src/wxc_cfzh_crawler/listing_records.py](../src/wxc_cfzh_crawler/listing_records.py): conversion from listing rows to frontier and listing-only records.
 - [../src/wxc_cfzh_crawler/db.py](../src/wxc_cfzh_crawler/db.py): SQLite schema, upserts, frontier state, and fetch helpers.
@@ -29,6 +31,10 @@ just crawl
 just crawl-smoke
 just export-flat
 ```
+
+Production deployments use `wxc-cfzh-admin` inside the Docker image and
+repo-level `just ops-*` SSH wrappers. See
+[../../docs/deployment.md](../../docs/deployment.md).
 
 Root recipe options are discoverable through:
 
@@ -44,6 +50,9 @@ just list
 - `WXC_CRAWLER_USER_AGENT`: crawler user agent override.
 - `WXC_LOG_LEVEL`: default Scrapy log level.
 - `WXC_PROGRESS`: live terminal progress mode. Use `off` to disable.
+- `WXC_ADMIN_DATA_DIR`: production admin CLI data directory override. Defaults
+  to the crawler data directory.
+- `WXC_ADMIN_LOG`: production admin CLI log file override.
 
 By default, recipe-driven data writes go to root `data/crawler.sqlite3`.
 
@@ -68,6 +77,10 @@ the parent frontier row is marked done. If the process stops mid-detail, startup
 resets that in-progress frontier row to pending so it can be retried.
 
 `ROBOTSTXT_OBEY` is intentionally disabled because this crawler is admin-authorized for the target site. The spider still uses conservative concurrency, delay, retry, timeout, and AutoThrottle settings.
+
+Production manual refresh and scheduled refresh share a lock under the runtime
+data directory. A scheduled tick skips while any crawl is active; a manual
+refresh reports the active crawl instead of starting a second writer.
 
 ## Checks
 

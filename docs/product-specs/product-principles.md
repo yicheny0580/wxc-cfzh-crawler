@@ -2,8 +2,9 @@
 
 The product is a local-first crawler and SQLite inspector for the Wenxuecity
 `财富智汇` forum. It helps a user collect forum discussions, preserve thread and
-reply context, and inspect the resulting local database without relying on a
-hosted service.
+reply context, and inspect the resulting local database. A small personal
+public deployment is supported as a read-only publish mode, not as a hosted
+multi-user platform.
 
 ## Users
 
@@ -18,6 +19,8 @@ hosted service.
 
 - Local-first operation: data lives in local SQLite files under `data/` by
   default.
+- Personal publish mode: public browser access reads SQLite data only; crawl
+  writes remain explicit operator actions through SSH/CLI or the scheduler.
 - Inspectability: users should be able to understand what was crawled, when it
   was crawled, and how records relate to root posts and replies.
 - Thread context: replies should remain connected to root posts and parent
@@ -38,7 +41,7 @@ hosted service.
 
 ## Non-Goals
 
-- The project is not a hosted multi-user service.
+- The project is not a hosted multi-user service or scalable public platform.
 - The inspector is not an editor for forum content.
 - The crawler is not a general Wenxuecity crawler for every forum.
 - The UI should not obscure the SQLite-backed nature of the workflow.

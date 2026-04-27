@@ -2,7 +2,9 @@
 
 The inspector provides a browser UI over the crawler SQLite database. Query
 endpoints are read-only; the Refresh control can start and stop a crawler
-subprocess against the inspected database.
+subprocess against the inspected database in local-development mode. Public
+deployment mode disables browser crawl start/stop routes and makes Refresh
+reload SQLite-backed read APIs only.
 
 This file is the inspector package map. Durable cross-domain rules live in root
 docs; inspector docs should stay focused on inspector source layout,
@@ -45,6 +47,10 @@ just inspect-api
 `just inspect` rebuilds `../frontend`, then serves the UI and API through
 FastAPI. Run `just setup` when frontend dependency manifests change.
 
+Set `WXC_INSPECT_PUBLIC=1` for public deployment mode. In that mode, the UI
+uses read-only data refresh and the backend disables browser-accessible crawl
+start/stop routes.
+
 ## Crawl Refresh
 
 Refresh starts a crawler run from the inspector backend with a default of 5
@@ -86,6 +92,11 @@ interpret post and reply `published_at`/`edited_at` values as
 render them in local time.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
+
+In public deployment mode, crawl mutation and WebSocket endpoints are disabled.
+Production crawl refresh is managed by SSH/CLI operations documented in
+[../../docs/deployment.md](../../docs/deployment.md). Public responses should
+not expose absolute local filesystem database paths.
 
 ## Checks
 
