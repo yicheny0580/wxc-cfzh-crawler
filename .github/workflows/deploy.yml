@@ -59,7 +59,7 @@ jobs:
         shell: bash
         run: |
           target="${DEPLOY_USER}@${DEPLOY_HOST}"
-          ssh -i ~/.ssh/wxc-cfzh "$target" "mkdir -p '${DEPLOY_PATH}'"
+          ssh -i ~/.ssh/wxc-cfzh "$target" "mkdir -p '${DEPLOY_PATH}' '${DEPLOY_PATH}/data'"
           scp -i ~/.ssh/wxc-cfzh docker-compose.yml Caddyfile "$target:${DEPLOY_PATH}/"
       - name: Deploy image
         shell: bash

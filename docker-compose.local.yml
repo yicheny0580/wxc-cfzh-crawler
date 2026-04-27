@@ -1,0 +1,58 @@
+services:
+  web:
+    image: wxc-cfzh-local:dev
+    build:
+      context: .
+    environment:
+      WXC_INSPECT_PUBLIC: "1"
+      WXC_INSPECT_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DATA_DIR: /data
+    ports:
+      - "127.0.0.1:${WXC_LOCAL_PORT:-8765}:8765"
+    volumes:
+      - ./data/docker-local:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+  admin:
+    image: wxc-cfzh-local:dev
+    build:
+      context: .
+    profiles:
+      - admin
+    environment:
+      WXC_ADMIN_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DATA_DIR: /data
+      WXC_PROGRESS: "off"
+    volumes:
+      - ./data/docker-local:/data
+
+  scheduler:
+    image: wxc-cfzh-local:dev
+    build:
+      context: .
+    profiles:
+      - scheduler
+    command:
+      [
+        "sh",
+        "-c",
+        "exec wxc-cfzh-admin scheduler run --interval \"$${WXC_SCHEDULER_INTERVAL}\" --pages \"$${WXC_SCHEDULER_PAGES}\"",
+      ]
+    environment:
+      WXC_ADMIN_DB: /data/crawler.sqlite3
+      WXC_ADMIN_DATA_DIR: /data
+      WXC_PROGRESS: "off"
+      WXC_SCHEDULER_INTERVAL: ${WXC_SCHEDULER_INTERVAL:-120}
+      WXC_SCHEDULER_PAGES: ${WXC_SCHEDULER_PAGES:-2}
+    volumes:
+      - ./data/docker-local:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

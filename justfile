@@ -282,12 +282,177 @@ ops-logs *options:
     args+=("$service")
     bash scripts/ops_remote.sh "${pass[@]}" -- "${args[@]}"
 
+# Show production admin/crawler event logs over SSH; options: tail=200 follow=false host= path=.
+ops-admin-logs *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tail=200
+    follow=false
+    pass=()
+    for option in "$@"; do
+      case "$option" in
+        tail=*|--tail=*) tail="${option#*=}" ;;
+        follow=*|--follow=*) follow="${option#*=}" ;;
+        --follow) follow=true ;;
+        host=*|--host=*|path=*|--path=*) pass+=("$option") ;;
+        *)
+          echo "Unknown ops-admin-logs option: $option" >&2
+          echo "Use key=value options: tail=, follow=, host=, path=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    args=(docker compose exec -T scheduler wxc-cfzh-admin logs --tail "$tail")
+    if [[ "$follow" == "true" ]]; then
+      args+=(--follow)
+    fi
+    bash scripts/ops_remote.sh "${pass[@]}" -- "${args[@]}"
+
 # Print production diagnostics over SSH; options: host= path=.
 ops-report *options:
     #!/usr/bin/env bash
     set -euo pipefail
     bash scripts/ops_remote.sh "$@" -- bash -lc \
       "docker compose ps && docker system df && docker compose exec -T scheduler wxc-cfzh-admin report && docker compose logs --tail 80 web scheduler"
+
+# Build the local Docker verification image.
+docker-local-build:
+    docker compose -f docker-compose.local.yml build web admin scheduler
+
+# Start the local Docker web service; options: port=8765.
+docker-local-up *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port=8765
+    for option in "$@"; do
+      case "$option" in
+        port=*|--port=*) port="${option#*=}" ;;
+        *)
+          echo "Unknown docker-local-up option: $option" >&2
+          echo "Use key=value options: port=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    WXC_LOCAL_PORT="$port" docker compose -f docker-compose.local.yml up -d web
+
+# Start local Docker web and scheduler services; options: port=8765 interval=120 pages=2.
+docker-local-up-scheduler *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    port=8765
+    interval=120
+    pages=2
+    for option in "$@"; do
+      case "$option" in
+        port=*|--port=*) port="${option#*=}" ;;
+        interval=*|--interval=*) interval="${option#*=}" ;;
+        pages=*|--pages=*) pages="${option#*=}" ;;
+        *)
+          echo "Unknown docker-local-up-scheduler option: $option" >&2
+          echo "Use key=value options: port=, interval=, pages=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    WXC_LOCAL_PORT="$port" WXC_SCHEDULER_INTERVAL="$interval" WXC_SCHEDULER_PAGES="$pages" \
+      docker compose -f docker-compose.local.yml --profile scheduler up -d web scheduler
+
+# Stop the local Docker verification stack.
+docker-local-down:
+    docker compose -f docker-compose.local.yml --profile scheduler down
+
+# Show local Docker crawl/scheduler status.
+docker-local-status:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin status --json
+
+# Start a manual local Docker crawl; options: pages=2.
+docker-local-refresh *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    pages=2
+    for option in "$@"; do
+      case "$option" in
+        pages=*|--pages=*) pages="${option#*=}" ;;
+        *)
+          echo "Unknown docker-local-refresh option: $option" >&2
+          echo "Use key=value options: pages=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin refresh --pages "$pages" --reason local-docker
+
+# Stop a local Docker crawl.
+docker-local-stop-crawl:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin stop --wait --force-after 30
+
+# Pause local Docker scheduled crawls.
+docker-local-scheduler-pause:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin scheduler pause
+
+# Resume local Docker scheduled crawls.
+docker-local-scheduler-resume:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin scheduler resume
+
+# Show local Docker scheduler pause status.
+docker-local-scheduler-status:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin scheduler status --json
+
+# Show local Docker logs; options: service=web tail=100 follow=false.
+docker-local-logs *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    service=web
+    tail=100
+    follow=false
+    for option in "$@"; do
+      case "$option" in
+        service=*|--service=*) service="${option#*=}" ;;
+        tail=*|--tail=*) tail="${option#*=}" ;;
+        follow=*|--follow=*) follow="${option#*=}" ;;
+        --follow) follow=true ;;
+        *)
+          echo "Unknown docker-local-logs option: $option" >&2
+          echo "Use key=value options: service=, tail=, follow=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    args=(docker compose -f docker-compose.local.yml logs --tail "$tail")
+    if [[ "$follow" == "true" ]]; then
+      args+=(--follow)
+    fi
+    args+=("$service")
+    "${args[@]}"
+
+# Show local Docker admin/crawler event logs; options: tail=200 follow=false.
+docker-local-admin-logs *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tail=200
+    follow=false
+    for option in "$@"; do
+      case "$option" in
+        tail=*|--tail=*) tail="${option#*=}" ;;
+        follow=*|--follow=*) follow="${option#*=}" ;;
+        --follow) follow=true ;;
+        *)
+          echo "Unknown docker-local-admin-logs option: $option" >&2
+          echo "Use key=value options: tail=, follow=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    args=(wxc-cfzh-admin logs --tail "$tail")
+    if [[ "$follow" == "true" ]]; then
+      args+=(--follow)
+    fi
+    bash scripts/docker_local_admin.sh "${args[@]}"
+
+# Print local Docker diagnostics.
+docker-local-report:
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin report
 
 # Run root quality-tool tests.
 test-root:

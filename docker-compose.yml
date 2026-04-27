@@ -8,7 +8,7 @@ services:
       WXC_ADMIN_DB: /data/crawler.sqlite3
       WXC_ADMIN_DATA_DIR: /data
     volumes:
-      - wxc-data:/data
+      - ${WXC_DATA_DIR:-./data}:/data
     healthcheck:
       test:
         - CMD
@@ -33,7 +33,7 @@ services:
       WXC_ADMIN_DATA_DIR: /data
       WXC_PROGRESS: "off"
     volumes:
-      - wxc-data:/data
+      - ${WXC_DATA_DIR:-./data}:/data
     logging:
       driver: json-file
       options:
@@ -61,6 +61,5 @@ services:
         max-file: "3"
 
 volumes:
-  wxc-data:
   caddy-data:
   caddy-config:

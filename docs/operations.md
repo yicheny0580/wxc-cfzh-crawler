@@ -122,6 +122,7 @@ just ops-stop-crawl
 just ops-scheduler-pause
 just ops-scheduler-resume
 just ops-logs service=scheduler tail=200
+just ops-admin-logs tail=200
 just ops-report
 ```
 
@@ -130,6 +131,35 @@ in-container `wxc-cfzh-admin` CLI and the scheduler service. Manual and
 scheduled refreshes share one lock, so a scheduled tick skips while a manual
 crawl is active and manual refresh reports the active crawl when the scheduler
 already owns the lock.
+
+## Local Docker Verification
+
+Use local Docker recipes to verify the image and public read-only mode before a
+cloud deploy:
+
+```bash
+just docker-local-build
+just docker-local-up
+just docker-local-up port=8766
+just docker-local-up-scheduler port=8766 pages=1 interval=120
+just docker-local-status
+just docker-local-stop-crawl
+just docker-local-refresh pages=1
+just docker-local-scheduler-status
+just docker-local-scheduler-pause
+just docker-local-scheduler-resume
+just docker-local-report
+just docker-local-admin-logs tail=100
+just docker-local-down
+```
+
+Local Docker data lives under ignored `data/docker-local/` by default and is
+bind-mounted into containers as `/data`. The local scheduler does not start
+unless explicitly requested with `just docker-local-up-scheduler`. Use the same
+`port=` option with `docker-local-up-scheduler` if the default `8765` port is
+already occupied. Local admin commands run inside the scheduler container when
+it is available, or the web container during web-only verification, so status
+and stop checks use a meaningful Docker PID namespace.
 
 ## Verification
 
