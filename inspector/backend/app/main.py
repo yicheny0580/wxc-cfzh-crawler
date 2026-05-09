@@ -7,9 +7,16 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Query, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
+from app._image_proxy import (
+    ImageProxyFetchError,
+    ImageProxyInputError,
+    fetch_image_bytes,
+    require_post_image_url,
+)
 from app._time import local_date_filter_bounds
 from app.crawl import crawl_manager
 from app.db import (
@@ -205,6 +212,35 @@ async def post_detail(post_id: str, conn: Connection) -> dict[str, object]:
         raise HTTPException(status_code=404, detail=f"Post {post_id} was not found.")
     post["replies"] = build_reply_tree(fetch_reply_rows(conn, post_id))
     return post
+
+
+@app.get("/api/posts/{post_id}/image")
+async def post_image(
+    post_id: str,
+    conn: Connection,
+    src: str = Query(..., max_length=2048),
+) -> Response:
+    post = fetch_post(conn, post_id)
+    if post is None:
+        raise HTTPException(status_code=404, detail=f"Post {post_id} was not found.")
+
+    body_html = post.get("body_html")
+    if not isinstance(body_html, str):
+        body_html = None
+
+    try:
+        image_url = require_post_image_url(body_html, src)
+        image = await run_in_threadpool(fetch_image_bytes, image_url)
+    except ImageProxyInputError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ImageProxyFetchError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return Response(
+        content=image.content,
+        media_type=image.media_type,
+        headers={"Cache-Control": "public, max-age=3600"},
+    )
 
 
 @app.get("/api/crawl/status", response_model=CrawlStatusResponse)

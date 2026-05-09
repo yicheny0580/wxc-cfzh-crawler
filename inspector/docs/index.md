@@ -71,6 +71,7 @@ shows `Stopping` until the process exits.
 - `GET /api/results`
 - `GET /api/posts`
 - `GET /api/posts/{post_id}`
+- `GET /api/posts/{post_id}/image`
 
 `GET /api/results` is the primary inspector list endpoint. It supports `search`,
 `author`, `published_from`, `published_to`, `published_timezone`,
@@ -96,6 +97,12 @@ interpret post and reply `published_at`/`edited_at` values as
 render them in local time.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
+
+`GET /api/posts/{post_id}/image?src=...` is a post-scoped image proxy for the
+reader's post-image export workflow. It only returns HTTP(S) images whose URL is
+present in that post's stored body HTML after normal forum-relative URL
+resolution, and it rejects local/private network targets so the route cannot act
+as a general open proxy.
 
 In public deployment mode, crawl mutation and WebSocket endpoints are disabled.
 Production crawl refresh is managed by SSH/CLI operations documented in

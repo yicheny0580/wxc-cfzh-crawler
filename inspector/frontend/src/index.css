@@ -59,6 +59,10 @@ select {
   outline-offset: 3px;
 }
 
+.post-export-card .reader-body-html :where(img) {
+  max-height: none !important;
+}
+
 .reader-body-html :where(ul, ol) {
   padding-left: 1.5rem;
 }

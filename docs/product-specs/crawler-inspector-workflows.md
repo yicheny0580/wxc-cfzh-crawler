@@ -67,6 +67,11 @@ The reader view should preserve body content, source metadata, nested replies,
 and source-page links. It should make forum content easier to inspect locally
 without pretending to replace the original forum.
 
+The reader should let the user export the selected root post as an image for
+sharing or archiving. The exported image includes the root post title, metadata,
+source link with a scannable QR code, and post body, including inline post
+images, but does not include replies.
+
 ## Refresh
 
 The inspector Refresh control can start a crawler run against the inspected

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { BodyContent, type ReaderImage } from "./BodyContent";
 import { ImageOverlay } from "./ImageOverlay";
+import { PostImageExport } from "./PostImageExport";
 import { StateBlock } from "./StateBlock";
 import { countLabel, displayTitle, formatDate, formatNumber } from "./format";
 import type { PostDetail, PostListItem, ReplyDetail } from "./types";
@@ -152,15 +153,18 @@ export function ReaderPane({
             </h2>
             <MetaLine post={post} />
           </div>
-          <a
-            href={post.url}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-[#fffdf8] px-3 text-sm font-medium text-stone-800 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-          >
-            <ExternalLink className="h-4 w-4" />
-            Open
-          </a>
+          <div className="flex shrink-0 flex-wrap items-start gap-2 xl:justify-end">
+            <PostImageExport post={post} />
+            <a
+              href={post.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-[#fffdf8] px-3 text-sm font-medium text-stone-800 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open
+            </a>
+          </div>
         </div>
       </div>
 

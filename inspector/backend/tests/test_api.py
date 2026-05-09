@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 import sqlite3
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -8,6 +9,7 @@ from pathlib import Path
 import httpx
 import pytest
 
+from app._image_proxy import MAX_IMAGE_BYTES, ImageProxyFetchError, ProxiedImage, fetch_image_bytes
 from app.crawl import CrawlManager
 from app.main import app
 
@@ -71,6 +73,34 @@ class FakeWebSocket:
 
     async def receive(self) -> dict[str, str]:
         return {"type": "websocket.disconnect"}
+
+
+class FakeImageResponse:
+    def __init__(self, content: bytes, content_type: str) -> None:
+        self.headers = {"Content-Type": content_type}
+        self._content = content
+
+    def read(self, size: int = -1) -> bytes:
+        return self._content if size < 0 else self._content[:size]
+
+    def __enter__(self) -> FakeImageResponse:
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+
+class FakeImageOpener:
+    def __init__(self, response: FakeImageResponse) -> None:
+        self.response = response
+
+    def open(
+        self,
+        fullurl: object,
+        data: bytes | None = None,
+        timeout: float | object = object(),
+    ) -> FakeImageResponse:
+        return self.response
 
 
 async def wait_for_crawl_state(manager: CrawlManager, state: str) -> None:
@@ -818,3 +848,109 @@ async def test_post_detail_404(client: httpx.AsyncClient) -> None:
     response = await client.get("/api/posts/999")
 
     assert response.status_code == 404
+
+
+@pytest.mark.anyio
+async def test_post_image_proxy_returns_stored_post_image(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fetched_urls: list[str] = []
+
+    def fake_fetch(url: str) -> ProxiedImage:
+        fetched_urls.append(url)
+        return ProxiedImage(content=b"png-bytes", media_type="image/png")
+
+    monkeypatch.setattr("app.main.fetch_image_bytes", fake_fetch)
+
+    response = await client.get("/api/posts/100/image", params={"src": "/upload/alpha.jpeg"})
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content == b"png-bytes"
+    assert fetched_urls == ["https://bbs.wenxuecity.com/upload/alpha.jpeg"]
+
+
+@pytest.mark.anyio
+async def test_post_image_proxy_rejects_images_outside_post_body(
+    client: httpx.AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_fetch(url: str) -> ProxiedImage:
+        raise AssertionError(f"Unexpected image fetch for {url}")
+
+    monkeypatch.setattr("app.main.fetch_image_bytes", fake_fetch)
+
+    response = await client.get("/api/posts/100/image", params={"src": "/upload/reply.jpeg"})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Image URL is not part of the requested post."
+
+
+@pytest.mark.anyio
+async def test_post_image_proxy_rejects_private_network_image(
+    client: httpx.AsyncClient,
+    db_path: Path,
+) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO posts (
+                post_id, url, forum, title, author, author_profile_url, published_at, edited_at,
+                body_text, body_html, byte_count, read_count, reply_count, crawled_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "300",
+                "https://bbs.wenxuecity.com/cfzh/300.html",
+                "cfzh",
+                "Private image",
+                "Dana",
+                None,
+                "2026-04-25T10:00:00",
+                None,
+                "Private image body",
+                '<p><img src="http://127.0.0.1/private.png"></p>',
+                18,
+                1,
+                0,
+                "2026-04-25T10:03:00",
+            ),
+        )
+
+    response = await client.get(
+        "/api/posts/300/image",
+        params={"src": "http://127.0.0.1/private.png"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == (
+        "Image host resolves to a private or local network address."
+    )
+
+
+def test_fetch_image_bytes_rejects_non_image_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app._image_proxy.socket.getaddrinfo",
+        lambda *args, **kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ],
+    )
+    opener = FakeImageOpener(FakeImageResponse(b"<html></html>", "text/html; charset=utf-8"))
+
+    with pytest.raises(ImageProxyFetchError, match="not a supported image"):
+        fetch_image_bytes("https://example.com/chart.png", opener=opener)
+
+
+def test_fetch_image_bytes_rejects_oversized_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        "app._image_proxy.socket.getaddrinfo",
+        lambda *args, **kwargs: [
+            (socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 443))
+        ],
+    )
+    opener = FakeImageOpener(FakeImageResponse(b"x" * (MAX_IMAGE_BYTES + 1), "image/png"))
+
+    with pytest.raises(ImageProxyFetchError, match="too large"):
+        fetch_image_bytes("https://example.com/chart.png", opener=opener)
