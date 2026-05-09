@@ -68,19 +68,21 @@ metadata from both current `a.nickname` member-profile links and older
 `a.username`/`profile.php` links.
 
 Interactive crawler progress is shown as one live-updating `CFZH` terminal line.
-Redirected or non-interactive output suppresses the live line and leaves failures
-plus the final summary as normal log lines. Frontier totals are known-so-far
-counts because parsing detail pages can discover additional nested replies.
+Redirected or non-interactive output suppresses the live line and leaves
+actionable failures plus the final summary as normal log lines. Frontier totals
+are known-so-far counts because parsing detail pages can discover additional
+nested replies.
 Detail-page persistence is transactionally grouped: a fetched root post or reply
 is saved together with child frontier rows discovered from that response before
 the parent frontier row is marked done. If the process stops mid-detail, startup
 resets that in-progress frontier row to pending so it can be retried.
 Detail responses that return HTTP 200 but expose no parseable title, author,
 published time, body, byte count, or read count are treated as failed frontier
-attempts instead of being saved as blank post or reply records.
-Every crawl startup resets failed frontier rows to pending with a fresh attempt
-budget, so each refresh retries prior failures even when the requested listing
-pages would not rediscover those posts or replies.
+attempts instead of being saved as blank post or reply records. Failed frontier
+rows are retried on later refreshes even when the requested listing pages would
+not rediscover those posts or replies. After 5 failed refresh attempts, a row is
+marked suppressed: it is preserved for auditability, excluded from normal failed
+counts, and no longer retried until a future listing update reopens it.
 
 `ROBOTSTXT_OBEY` is intentionally disabled because this crawler is admin-authorized for the target site. The spider still uses conservative concurrency, delay, retry, timeout, and AutoThrottle settings.
 

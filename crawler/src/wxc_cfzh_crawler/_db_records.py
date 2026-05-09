@@ -3,7 +3,11 @@ from __future__ import annotations
 import sqlite3
 from collections.abc import Iterable
 
-from wxc_cfzh_crawler._db_frontier import mark_frontier_done, upsert_frontier_entry
+from wxc_cfzh_crawler._db_frontier import (
+    DEFAULT_SUPPRESSION_ATTEMPTS,
+    mark_frontier_done,
+    upsert_frontier_entry,
+)
 from wxc_cfzh_crawler._db_search import upsert_post_search, upsert_reply_search
 from wxc_cfzh_crawler._db_time import dt_to_text
 from wxc_cfzh_crawler.models import ForumPost, ForumReply, FrontierRecord
@@ -123,7 +127,7 @@ def save_post_detail(
     *,
     frontier_post_id: str,
     http_status: int | None = None,
-    max_attempts: int = 3,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
 ) -> None:
     with conn:
         upsert_post(conn, post, commit=False)
@@ -149,7 +153,7 @@ def save_reply_detail(
     *,
     frontier_post_id: str,
     http_status: int | None = None,
-    max_attempts: int = 3,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
 ) -> None:
     with conn:
         upsert_reply(conn, reply, commit=False)
@@ -173,7 +177,7 @@ def save_listing_record_without_detail(
     record: ForumPost | ForumReply,
     frontier: FrontierRecord,
     *,
-    max_attempts: int = 3,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
 ) -> None:
     with conn:
         upsert_frontier_entry(

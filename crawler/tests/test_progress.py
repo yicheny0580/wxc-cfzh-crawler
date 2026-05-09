@@ -30,8 +30,20 @@ def progress_snapshot() -> CrawlProgress:
         saved_posts=1,
         saved_replies=2,
         frontier={
-            "post": {"pending": 3, "in_progress": 1, "done": 1, "failed": 0},
-            "reply": {"pending": 5, "in_progress": 2, "done": 2, "failed": 1},
+            "post": {
+                "pending": 3,
+                "in_progress": 1,
+                "done": 1,
+                "failed": 0,
+                "suppressed": 1,
+            },
+            "reply": {
+                "pending": 5,
+                "in_progress": 2,
+                "done": 2,
+                "failed": 1,
+                "suppressed": 0,
+            },
         },
     )
 
@@ -41,7 +53,7 @@ def test_format_live_crawl_progress_is_compact() -> None:
 
     assert text == (
         "CFZH saved posts=1 replies=2 | pending posts=3 replies=5 | "
-        "active=3 | failed=1 | scheduled=4/10"
+        "active=3 | failed=1 | suppressed=1 | scheduled=4/10"
     )
 
 

@@ -47,6 +47,10 @@ function failedCount(status: CrawlStatusResponse | null): number {
   return count(status, "post", "failed") + count(status, "reply", "failed");
 }
 
+function suppressedCount(status: CrawlStatusResponse | null): number {
+  return count(status, "post", "suppressed") + count(status, "reply", "suppressed");
+}
+
 function elapsedLabel(seconds: number | null): string {
   if (seconds === null) {
     return "-";
@@ -304,6 +308,7 @@ export function CrawlControls({
             <Metric label="Pending" value={formatNumber(pendingCount(status))} />
             <Metric label="Active" value={formatNumber(activeCount(status))} />
             <Metric label="Failed" value={formatNumber(failedCount(status))} />
+            <Metric label="Suppressed" value={formatNumber(suppressedCount(status))} />
           </dl>
 
           {error ? (

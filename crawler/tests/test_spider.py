@@ -312,7 +312,48 @@ def test_parse_index_requeues_failed_frontier_without_listing_rediscovery(
     row = fetch_frontier_row(conn, "999")
     assert row is not None
     assert row["status"] == "in_progress"
-    assert row["attempts"] == 1
+    assert row["attempts"] == 4
+
+
+def test_parse_index_does_not_requeue_suppressed_frontier(tmp_path: Path) -> None:
+    spider = CfzhSpider(
+        pages=1,
+        max_requests=1,
+        database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}",
+    )
+    conn = spider.frontier_conn()
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="999",
+            url="https://bbs.wenxuecity.com/cfzh/999.html",
+            record_type="post",
+            root_post_id="999",
+            listing_title="Previously failed",
+        ),
+    )
+    claim_next_frontier(conn)
+    mark_frontier_failed(conn, "999", http_status=500, error="persistent upstream error")
+    conn.execute("UPDATE frontier SET attempts = 5, suppressed_at = NULL WHERE post_id = '999'")
+    conn.commit()
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body><div id="postlist"></div></body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert request_post_ids(results) == []
+    row = fetch_frontier_row(conn, "999")
+    assert row is not None
+    assert row["status"] == "failed"
+    assert row["attempts"] == 5
+    assert row["suppressed_at"] is not None
 
 
 def test_parse_root_post_saves_atomically_and_schedules_replies(tmp_path: Path) -> None:
@@ -470,6 +511,10 @@ def test_parse_failure_logs_failed_progress(tmp_path: Path, caplog) -> None:
     assert row["status"] == "failed"
     messages = "\n".join(caplog.messages)
     assert "CFZH failed post id=999 status=200" in messages
-    assert "frontier posts pending=0 in_progress=0 done=0 failed=1" in messages
+    assert (
+        "frontier posts pending=0 in_progress=0 done=0 failed=1; "
+        "frontier replies pending=0 in_progress=0 done=0 failed=0; "
+        "suppressed posts=0 replies=0"
+    ) in messages
     assert "\r\x1b[K" in stream.writes
-    assert "failed=1" in stream.text
+    assert "failed=1 | suppressed=0" in stream.text

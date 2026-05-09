@@ -10,7 +10,7 @@ import httpx
 import pytest
 
 from app._image_proxy import MAX_IMAGE_BYTES, ImageProxyFetchError, ProxiedImage, fetch_image_bytes
-from app.crawl import CrawlManager
+from app.crawl import CrawlManager, fetch_crawl_progress
 from app.main import app
 
 
@@ -109,6 +109,74 @@ async def wait_for_crawl_state(manager: CrawlManager, state: str) -> None:
             return
         await asyncio.sleep(0.01)
     raise AssertionError(f"Crawl state did not become {state}.")
+
+
+def create_progress_db(path: Path, *, include_suppressed_at: bool) -> None:
+    suppressed_column = ", suppressed_at TEXT" if include_suppressed_at else ""
+    conn = sqlite3.connect(path)
+    conn.executescript(
+        f"""
+        CREATE TABLE posts (post_id TEXT PRIMARY KEY);
+        CREATE TABLE replies (reply_id TEXT PRIMARY KEY);
+        CREATE TABLE frontier (
+            post_id TEXT PRIMARY KEY,
+            record_type TEXT NOT NULL,
+            status TEXT NOT NULL
+            {suppressed_column}
+        );
+        INSERT INTO posts VALUES ('100');
+        INSERT INTO replies VALUES ('101');
+        """
+    )
+    if include_suppressed_at:
+        conn.executemany(
+            """
+            INSERT INTO frontier (post_id, record_type, status, suppressed_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            [
+                ("100", "post", "failed", None),
+                ("200", "post", "failed", "2026-05-09T00:00:00+00:00"),
+                ("101", "reply", "done", None),
+            ],
+        )
+    else:
+        conn.executemany(
+            "INSERT INTO frontier (post_id, record_type, status) VALUES (?, ?, ?)",
+            [
+                ("100", "post", "failed"),
+                ("101", "reply", "done"),
+            ],
+        )
+    conn.commit()
+    conn.close()
+
+
+def test_fetch_crawl_progress_separates_suppressed_failures(tmp_path: Path) -> None:
+    path = tmp_path / "crawler.sqlite3"
+    create_progress_db(path, include_suppressed_at=True)
+
+    progress = fetch_crawl_progress(path)
+
+    assert progress is not None
+    assert progress.saved_posts == 1
+    assert progress.saved_replies == 1
+    assert progress.frontier["post"]["failed"] == 1
+    assert progress.frontier["post"]["suppressed"] == 1
+    assert progress.frontier["reply"]["done"] == 1
+
+
+def test_fetch_crawl_progress_supports_databases_without_suppression_column(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "crawler.sqlite3"
+    create_progress_db(path, include_suppressed_at=False)
+
+    progress = fetch_crawl_progress(path)
+
+    assert progress is not None
+    assert progress.frontier["post"]["failed"] == 1
+    assert progress.frontier["post"]["suppressed"] == 0
 
 
 @pytest.fixture()

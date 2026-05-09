@@ -77,6 +77,9 @@ images, but does not include replies.
 The inspector Refresh control can start a crawler run against the inspected
 database. Only one refresh run should execute per backend process. Stop requests
 should move the UI into a stopping state until the crawler subprocess exits.
+Refresh status should separate actionable failed frontier rows from suppressed
+persistent failures so a successful refresh is not presented as failed only
+because an upstream detail URL has repeatedly returned an unrecoverable error.
 
 In public deployment mode, browser Refresh is read-only: it refetches the latest
 SQLite-backed API data and must not start or stop a crawler. Production crawl

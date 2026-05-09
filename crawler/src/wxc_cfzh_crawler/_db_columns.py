@@ -14,5 +14,5 @@ REPLY_SELECT_COLUMNS = """
 FRONTIER_SELECT_COLUMNS = """
     post_id, url, record_type, root_post_id, parent_reply_id, depth, forum_order, listing_title,
     listing_reply_count, status, attempts, discovered_at, updated_at, last_fetched_at,
-    last_http_status, last_error
+    last_http_status, last_error, suppressed_at
 """

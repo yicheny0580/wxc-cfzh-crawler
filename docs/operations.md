@@ -55,9 +55,10 @@ Useful options:
 
 Interactive crawls show CFZH progress as one live-updating terminal line. The
 line reports saved post/reply counts, pending work, active detail requests,
-failures, and scheduled detail requests. Redirected or non-interactive output
-suppresses the live line and keeps failures plus the final summary as normal log
-lines. Use `WXC_PROGRESS=off` to disable live progress explicitly.
+actionable failures, suppressed persistent failures, and scheduled detail
+requests. Redirected or non-interactive output suppresses the live line and
+keeps actionable failures plus the final summary as normal log lines. Use
+`WXC_PROGRESS=off` to disable live progress explicitly.
 
 Counts are "known so far" because root posts and nested replies can discover
 more reply links while the crawl is running.

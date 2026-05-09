@@ -18,6 +18,7 @@ CrawlState = Literal["idle", "running", "stopping", "succeeded", "failed", "stop
 ACTIVE_STATES: set[CrawlState] = {"running", "stopping"}
 TERMINAL_STATES: set[CrawlState] = {"succeeded", "failed", "stopped"}
 TAIL_LIMIT = 4000
+FRONTIER_STATUSES = ("pending", "in_progress", "done", "failed", "suppressed")
 
 SubprocessFactory = Callable[..., Awaitable[asyncio.subprocess.Process]]
 
@@ -63,18 +64,29 @@ def fetch_crawl_progress(db_path: Path) -> CrawlProgressCounts | None:
 
     try:
         frontier = {
-            record_type: {status: 0 for status in ("pending", "in_progress", "done", "failed")}
+            record_type: {status: 0 for status in FRONTIER_STATUSES}
             for record_type in ("post", "reply")
         }
-        for row in conn.execute(
+        frontier_columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(frontier)")}
+        status_expression = (
             """
-            SELECT record_type, status, COUNT(*) AS record_count
+            CASE
+                WHEN status = 'failed' AND suppressed_at IS NOT NULL THEN 'suppressed'
+                ELSE status
+            END
+            """
+            if "suppressed_at" in frontier_columns
+            else "status"
+        )
+        for row in conn.execute(
+            f"""
+            SELECT record_type, {status_expression} AS progress_status, COUNT(*) AS record_count
             FROM frontier
-            GROUP BY record_type, status
+            GROUP BY record_type, progress_status
             """
         ):
             record_type = str(row["record_type"])
-            status = str(row["status"])
+            status = str(row["progress_status"])
             if record_type in frontier and status in frontier[record_type]:
                 frontier[record_type][status] = int(row["record_count"] or 0)
 

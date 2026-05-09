@@ -22,6 +22,9 @@ from wxc_cfzh_crawler._db_connection import (
     sqlite_path_from_url as sqlite_path_from_url,
 )
 from wxc_cfzh_crawler._db_frontier import (
+    DEFAULT_SUPPRESSION_ATTEMPTS as DEFAULT_SUPPRESSION_ATTEMPTS,
+)
+from wxc_cfzh_crawler._db_frontier import (
     claim_next_frontier as claim_next_frontier,
 )
 from wxc_cfzh_crawler._db_frontier import (
@@ -90,6 +93,7 @@ __all__ = [
     "POST_SELECT_COLUMNS",
     "REPLY_SELECT_COLUMNS",
     "CrawlProgress",
+    "DEFAULT_SUPPRESSION_ATTEMPTS",
     "backfill_frontier",
     "claim_next_frontier",
     "connect",

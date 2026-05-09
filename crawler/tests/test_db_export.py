@@ -8,6 +8,7 @@ import pytest
 from wxc_cfzh_crawler.db import (
     claim_next_frontier,
     connect,
+    fetch_crawl_progress,
     fetch_frontier_row,
     fetch_replies,
     fetch_root_posts,
@@ -134,7 +135,9 @@ def test_frontier_claim_and_done_transition(tmp_path) -> None:
     row = fetch_frontier_row(conn, "100")
     assert row is not None
     assert row["status"] == "done"
+    assert row["attempts"] == 0
     assert row["last_http_status"] == 200
+    assert row["suppressed_at"] is None
 
 
 def test_reset_in_progress_frontier_restores_pending_without_spending_attempt(
@@ -160,7 +163,7 @@ def test_reset_in_progress_frontier_restores_pending_without_spending_attempt(
     assert row["attempts"] == 0
 
 
-def test_reset_failed_frontier_requeues_with_fresh_attempt_budget(tmp_path) -> None:
+def test_reset_failed_frontier_requeues_without_resetting_attempts(tmp_path) -> None:
     conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
     upsert_frontier_entry(
         conn,
@@ -175,21 +178,124 @@ def test_reset_failed_frontier_requeues_with_fresh_attempt_budget(tmp_path) -> N
     claimed = claim_next_frontier(conn)
     assert claimed is not None
     mark_frontier_failed(conn, "100", http_status=500, error="temporary upstream error")
-    conn.execute("UPDATE frontier SET attempts = 3 WHERE post_id = '100'")
-    conn.commit()
 
-    assert reset_failed_frontier(conn) == 1
+    reset = reset_failed_frontier(conn)
+
+    assert reset.requeued == 1
+    assert reset.suppressed == 0
 
     row = fetch_frontier_row(conn, "100")
     assert row is not None
     assert row["status"] == "pending"
-    assert row["attempts"] == 0
+    assert row["attempts"] == 1
     assert row["last_error"] is None
 
     claimed_again = claim_next_frontier(conn)
     assert claimed_again is not None
     assert claimed_again["post_id"] == "100"
-    assert claimed_again["attempts"] == 1
+    assert claimed_again["attempts"] == 2
+
+
+def test_reset_failed_frontier_suppresses_rows_at_attempt_threshold(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+        ),
+    )
+    claim_next_frontier(conn)
+    mark_frontier_failed(conn, "100", http_status=500, error="persistent upstream error")
+    conn.execute("UPDATE frontier SET attempts = 5, suppressed_at = NULL WHERE post_id = '100'")
+    conn.commit()
+
+    reset = reset_failed_frontier(conn)
+
+    assert reset.requeued == 0
+    assert reset.suppressed == 1
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "failed"
+    assert row["attempts"] == 5
+    assert row["suppressed_at"] is not None
+    progress = fetch_crawl_progress(conn)
+    assert progress.frontier_count("post", "failed") == 0
+    assert progress.frontier_count("post", "suppressed") == 1
+    assert claim_next_frontier(conn) is None
+
+
+def test_mark_frontier_failed_suppresses_on_threshold_attempt(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+        ),
+    )
+    claim_next_frontier(conn)
+    conn.execute("UPDATE frontier SET attempts = 5 WHERE post_id = '100'")
+    conn.commit()
+
+    mark_frontier_failed(conn, "100", http_status=500, error="persistent upstream error")
+
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "failed"
+    assert row["suppressed_at"] is not None
+
+    mark_frontier_done(conn, "100", http_status=200)
+
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "done"
+    assert row["attempts"] == 0
+    assert row["suppressed_at"] is None
+
+
+def test_upsert_frontier_reopens_suppressed_row_when_listing_metadata_changes(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_title="Old title",
+        ),
+    )
+    claim_next_frontier(conn)
+    conn.execute(
+        """
+        UPDATE frontier
+        SET status = 'failed', attempts = 5, suppressed_at = '2026-05-09T00:00:00+00:00'
+        WHERE post_id = '100'
+        """
+    )
+    conn.commit()
+
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+            listing_title="Updated title",
+        ),
+    )
+
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "pending"
+    assert row["attempts"] == 0
+    assert row["suppressed_at"] is None
 
 
 def test_frontier_delta_refresh_marks_root_and_known_replies_pending(tmp_path) -> None:
@@ -267,7 +373,7 @@ def test_frontier_delta_refresh_marks_root_and_known_replies_pending(tmp_path) -
         row = fetch_frontier_row(conn, post_id)
         assert row is not None
         assert row["status"] == "done"
-        assert row["attempts"] == 1
+        assert row["attempts"] == 0
 
 
 def test_frontier_backfills_existing_posts_and_replies(tmp_path) -> None:
@@ -295,9 +401,11 @@ def test_frontier_backfills_existing_posts_and_replies(tmp_path) -> None:
     assert post_row is not None
     assert post_row["status"] == "done"
     assert post_row["record_type"] == "post"
+    assert post_row["suppressed_at"] is None
     assert reply_row is not None
     assert reply_row["status"] == "done"
     assert reply_row["record_type"] == "reply"
+    assert reply_row["suppressed_at"] is None
 
 
 def test_save_post_detail_persists_record_children_and_done_atomically(tmp_path) -> None:

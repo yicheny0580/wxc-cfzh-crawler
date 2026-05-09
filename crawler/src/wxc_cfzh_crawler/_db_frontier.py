@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 
 from wxc_cfzh_crawler._db_columns import FRONTIER_SELECT_COLUMNS
 from wxc_cfzh_crawler._db_time import utc_now_text
 from wxc_cfzh_crawler.models import FrontierRecord
+
+DEFAULT_SUPPRESSION_ATTEMPTS = 5
+
+
+@dataclass(frozen=True)
+class FailedFrontierReset:
+    requeued: int
+    suppressed: int
 
 
 def current_root_reply_count(conn: sqlite3.Connection, root_post_id: str) -> int:
@@ -43,7 +52,8 @@ def reopen_root_reply_frontier(
         SET status = 'pending',
             attempts = 0,
             updated_at = ?,
-            last_error = NULL
+            last_error = NULL,
+            suppressed_at = NULL
         WHERE record_type = 'reply'
             AND root_post_id = ?
             AND status != 'in_progress'
@@ -56,7 +66,7 @@ def upsert_frontier_entry(
     conn: sqlite3.Connection,
     entry: FrontierRecord,
     *,
-    max_attempts: int = 3,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
     commit: bool = True,
 ) -> None:
     now = utc_now_text()
@@ -68,9 +78,9 @@ def upsert_frontier_entry(
             INSERT INTO frontier (
                 post_id, url, record_type, root_post_id, parent_reply_id, depth, forum_order,
                 listing_title, listing_reply_count, status, attempts, discovered_at, updated_at,
-                last_fetched_at, last_http_status, last_error
+                last_fetched_at, last_http_status, last_error, suppressed_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?, ?, NULL, NULL, NULL, NULL)
             """,
             (
                 entry.post_id,
@@ -93,6 +103,14 @@ def upsert_frontier_entry(
     status = str(existing["status"])
     last_error = existing["last_error"]
     attempts = int(existing["attempts"] or 0)
+    suppressed_at = existing["suppressed_at"]
+    listing_changed = (
+        (entry.listing_title is not None and entry.listing_title != existing["listing_title"])
+        or (
+            entry.listing_reply_count is not None
+            and entry.listing_reply_count != existing["listing_reply_count"]
+        )
+    )
 
     if (
         status == "done"
@@ -103,8 +121,14 @@ def upsert_frontier_entry(
         status = "pending"
         attempts = 0
         last_error = None
+        suppressed_at = None
         reopen_root_reply_frontier(conn, entry.post_id, updated_at=now)
-    elif status == "failed" and attempts < max_attempts:
+    elif status == "failed" and suppressed_at is not None and listing_changed:
+        status = "pending"
+        attempts = 0
+        last_error = None
+        suppressed_at = None
+    elif status == "failed" and suppressed_at is None and attempts < max_attempts:
         status = "pending"
         last_error = None
 
@@ -122,7 +146,8 @@ def upsert_frontier_entry(
             status = ?,
             attempts = ?,
             updated_at = ?,
-            last_error = ?
+            last_error = ?,
+            suppressed_at = ?
         WHERE post_id = ?
         """,
         (
@@ -142,6 +167,7 @@ def upsert_frontier_entry(
             attempts,
             now,
             last_error,
+            suppressed_at,
             entry.post_id,
         ),
     )
@@ -163,33 +189,52 @@ def reset_in_progress_frontier(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def reset_failed_frontier(conn: sqlite3.Connection) -> int:
+def reset_failed_frontier(
+    conn: sqlite3.Connection,
+    *,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
+) -> FailedFrontierReset:
     now = utc_now_text()
-    cursor = conn.execute(
+    suppressed_cursor = conn.execute(
+        """
+        UPDATE frontier
+        SET updated_at = ?,
+            suppressed_at = COALESCE(suppressed_at, ?)
+        WHERE status = 'failed'
+            AND suppressed_at IS NULL
+            AND attempts >= ?
+        """,
+        (now, now, max_attempts),
+    )
+    requeued_cursor = conn.execute(
         """
         UPDATE frontier
         SET status = 'pending',
-            attempts = 0,
             updated_at = ?,
             last_error = NULL
         WHERE status = 'failed'
+            AND suppressed_at IS NULL
+            AND attempts < ?
         """,
-        (now,),
+        (now, max_attempts),
     )
     conn.commit()
-    return int(cursor.rowcount or 0)
+    return FailedFrontierReset(
+        requeued=int(requeued_cursor.rowcount or 0),
+        suppressed=int(suppressed_cursor.rowcount or 0),
+    )
 
 
 def claim_next_frontier(
     conn: sqlite3.Connection,
     *,
-    max_attempts: int = 3,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
 ) -> dict[str, object] | None:
     row = conn.execute(
         f"""
         SELECT {FRONTIER_SELECT_COLUMNS}
         FROM frontier
-        WHERE status = 'pending' AND attempts < ?
+        WHERE status = 'pending' AND suppressed_at IS NULL AND attempts < ?
         ORDER BY
             CASE record_type WHEN 'post' THEN 0 ELSE 1 END ASC,
             discovered_at ASC,
@@ -230,10 +275,12 @@ def mark_frontier_done(
         """
         UPDATE frontier
         SET status = 'done',
+            attempts = 0,
             updated_at = ?,
             last_fetched_at = ?,
             last_http_status = ?,
-            last_error = NULL
+            last_error = NULL,
+            suppressed_at = NULL
         WHERE post_id = ?
         """,
         (now, now, http_status, post_id),
@@ -248,6 +295,7 @@ def mark_frontier_failed(
     *,
     http_status: int | None = None,
     error: str | None = None,
+    max_attempts: int = DEFAULT_SUPPRESSION_ATTEMPTS,
 ) -> None:
     now = utc_now_text()
     conn.execute(
@@ -257,9 +305,13 @@ def mark_frontier_failed(
             updated_at = ?,
             last_fetched_at = ?,
             last_http_status = ?,
-            last_error = ?
+            last_error = ?,
+            suppressed_at = CASE
+                WHEN attempts >= ? THEN COALESCE(suppressed_at, ?)
+                ELSE suppressed_at
+            END
         WHERE post_id = ?
         """,
-        (now, now, http_status, error, post_id),
+        (now, now, http_status, error, max_attempts, now, post_id),
     )
     conn.commit()

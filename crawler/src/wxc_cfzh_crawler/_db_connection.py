@@ -92,7 +92,8 @@ def init_db(conn: sqlite3.Connection) -> None:
             updated_at TEXT NOT NULL,
             last_fetched_at TEXT,
             last_http_status INTEGER,
-            last_error TEXT
+            last_error TEXT,
+            suppressed_at TEXT
         );
 
         CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at);
@@ -103,10 +104,17 @@ def init_db(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_frontier_root_post_id ON frontier(root_post_id);
         """
     )
+    ensure_frontier_columns(conn)
     init_search_index(conn)
     backfill_frontier(conn)
     backfill_search_index(conn)
     conn.commit()
+
+
+def ensure_frontier_columns(conn: sqlite3.Connection) -> None:
+    columns = {str(row[1]) for row in conn.execute("PRAGMA table_info(frontier)")}
+    if "suppressed_at" not in columns:
+        conn.execute("ALTER TABLE frontier ADD COLUMN suppressed_at TEXT")
 
 
 def backfill_frontier(conn: sqlite3.Connection) -> None:
@@ -115,22 +123,22 @@ def backfill_frontier(conn: sqlite3.Connection) -> None:
         INSERT OR IGNORE INTO frontier (
             post_id, url, record_type, root_post_id, parent_reply_id, depth, forum_order,
             listing_title, listing_reply_count, status, attempts, discovered_at, updated_at,
-            last_fetched_at, last_http_status, last_error
+            last_fetched_at, last_http_status, last_error, suppressed_at
         )
         SELECT
             post_id, url, 'post', post_id, NULL, 0, NULL, title, reply_count, 'done', 0,
-            crawled_at, crawled_at, crawled_at, 200, NULL
+            crawled_at, crawled_at, crawled_at, 200, NULL, NULL
         FROM posts;
 
         INSERT OR IGNORE INTO frontier (
             post_id, url, record_type, root_post_id, parent_reply_id, depth, forum_order,
             listing_title, listing_reply_count, status, attempts, discovered_at, updated_at,
-            last_fetched_at, last_http_status, last_error
+            last_fetched_at, last_http_status, last_error, suppressed_at
         )
         SELECT
             reply_id, url, 'reply', root_post_id, parent_reply_id, depth, forum_order,
             title, NULL, 'done', 0,
-            crawled_at, crawled_at, crawled_at, 200, NULL
+            crawled_at, crawled_at, crawled_at, 200, NULL, NULL
         FROM replies;
         """
     )

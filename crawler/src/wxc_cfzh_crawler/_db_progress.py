@@ -4,7 +4,7 @@ import sqlite3
 from dataclasses import dataclass
 
 FRONTIER_RECORD_TYPES = ("post", "reply")
-FRONTIER_STATUSES = ("pending", "in_progress", "done", "failed")
+FRONTIER_STATUSES = ("pending", "in_progress", "done", "failed", "suppressed")
 
 
 @dataclass(frozen=True)
@@ -24,12 +24,20 @@ def fetch_crawl_progress(conn: sqlite3.Connection) -> CrawlProgress:
     }
     for row in conn.execute(
         """
-        SELECT record_type, status, COUNT(*) AS record_count
+        SELECT
+            record_type,
+            CASE
+                WHEN status = 'failed' AND suppressed_at IS NOT NULL THEN 'suppressed'
+                ELSE status
+            END AS progress_status,
+            COUNT(*) AS record_count
         FROM frontier
-        GROUP BY record_type, status
+        GROUP BY record_type, progress_status
         """
     ):
-        frontier[str(row["record_type"])][str(row["status"])] = int(row["record_count"])
+        frontier[str(row["record_type"])][str(row["progress_status"])] = int(
+            row["record_count"]
+        )
 
     saved_posts = int(conn.execute("SELECT COUNT(*) FROM posts").fetchone()[0] or 0)
     saved_replies = int(conn.execute("SELECT COUNT(*) FROM replies").fetchone()[0] or 0)
@@ -52,7 +60,10 @@ def format_crawl_progress(progress: CrawlProgress) -> str:
         f"pending={progress.frontier_count('reply', 'pending')} "
         f"in_progress={progress.frontier_count('reply', 'in_progress')} "
         f"done={progress.frontier_count('reply', 'done')} "
-        f"failed={progress.frontier_count('reply', 'failed')}"
+        f"failed={progress.frontier_count('reply', 'failed')}; "
+        "suppressed "
+        f"posts={progress.frontier_count('post', 'suppressed')} "
+        f"replies={progress.frontier_count('reply', 'suppressed')}"
     )
 
 
@@ -72,11 +83,16 @@ def format_live_crawl_progress(
         "reply",
         "failed",
     )
+    suppressed = progress.frontier_count("post", "suppressed") + progress.frontier_count(
+        "reply",
+        "suppressed",
+    )
     return (
         f"CFZH saved posts={progress.saved_posts} replies={progress.saved_replies}"
         f" | pending posts={pending_posts} replies={pending_replies}"
         f" | active={active}"
         f" | failed={failed}"
+        f" | suppressed={suppressed}"
         f" | scheduled={format_scheduled_count(scheduled, max_requests)}"
     )
 

@@ -39,7 +39,6 @@ from wxc_cfzh_crawler.paths import default_database_url
 from wxc_cfzh_crawler.progress import get_crawl_progress_reporter
 
 DEFAULT_DATABASE_URL = default_database_url()
-MAX_FRONTIER_ATTEMPTS = 3
 
 
 class CfzhSpider(scrapy.Spider):
@@ -106,9 +105,11 @@ class CfzhSpider(scrapy.Spider):
         if self.frontier_prepared:
             return
         reset_in_progress_frontier(self.frontier_conn())
-        requeued = reset_failed_frontier(self.frontier_conn())
-        if requeued:
-            self.logger.info("CFZH requeued failed frontier rows count=%s", requeued)
+        reset = reset_failed_frontier(self.frontier_conn())
+        if reset.requeued:
+            self.logger.info("CFZH requeued failed frontier rows count=%s", reset.requeued)
+        if reset.suppressed:
+            self.logger.info("CFZH suppressed failed frontier rows count=%s", reset.suppressed)
         self.frontier_prepared = True
 
     def index_url(self, page_number: int) -> str:
@@ -151,7 +152,6 @@ class CfzhSpider(scrapy.Spider):
                 child_frontier,
                 frontier_post_id=str(response.meta.get("frontier_post_id") or root_post_id),
                 http_status=response.status,
-                max_attempts=MAX_FRONTIER_ATTEMPTS,
             )
         except Exception as exc:  # noqa: BLE001
             self.mark_response_failed(response, exc)
@@ -186,7 +186,6 @@ class CfzhSpider(scrapy.Spider):
                     response.meta.get("frontier_post_id") or reply_item["reply_id"]
                 ),
                 http_status=response.status,
-                max_attempts=MAX_FRONTIER_ATTEMPTS,
             )
         except Exception as exc:  # noqa: BLE001
             self.mark_response_failed(response, exc)
@@ -196,9 +195,6 @@ class CfzhSpider(scrapy.Spider):
         self.save_skipped_listing_entries(child_entries)
         self.update_comment_progress(len(child_frontier))
         yield from self.next_frontier_requests()
-
-    def parse_post(self, response: scrapy.http.Response):
-        yield from self.parse_root_post(response)
 
     def save_skipped_listing_entries(self, entries: list[PostListEntry]) -> None:
         for forum_order, entry in enumerate(entries, start=1):
@@ -226,7 +222,6 @@ class CfzhSpider(scrapy.Spider):
             self.frontier_conn(),
             record_from_listing_entry(entry, forum_order=forum_order),
             frontier_record_from_entry(entry, forum_order=forum_order),
-            max_attempts=MAX_FRONTIER_ATTEMPTS,
         )
 
     def enqueue_frontier_entry(
@@ -238,15 +233,11 @@ class CfzhSpider(scrapy.Spider):
         upsert_frontier_entry(
             self.frontier_conn(),
             frontier_record_from_entry(entry, forum_order=forum_order),
-            max_attempts=MAX_FRONTIER_ATTEMPTS,
         )
 
     def next_frontier_requests(self):
         while self.can_schedule_detail_request():
-            row = claim_next_frontier(
-                self.frontier_conn(),
-                max_attempts=MAX_FRONTIER_ATTEMPTS,
-            )
+            row = claim_next_frontier(self.frontier_conn())
             if row is None:
                 return
             self.scheduled_detail_requests += 1
@@ -384,8 +375,7 @@ class CfzhSpider(scrapy.Spider):
     @staticmethod
     def public_item_data(item: dict[str, Any]) -> dict[str, Any]:
         return {
-            key: value
-            for key, value in item.items()
+            key: value for key, value in item.items()
             if key != "item_type" and not key.startswith("_")
         }
 
