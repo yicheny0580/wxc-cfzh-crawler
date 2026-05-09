@@ -84,8 +84,6 @@ not rediscover those posts or replies. After 5 failed refresh attempts, a row is
 marked suppressed: it is preserved for auditability, excluded from normal failed
 counts, and no longer retried until a future listing update reopens it.
 
-`ROBOTSTXT_OBEY` is intentionally disabled because this crawler is admin-authorized for the target site. The spider still uses conservative concurrency, delay, retry, timeout, and AutoThrottle settings.
-
 Production manual refresh and scheduled refresh share a lock under the runtime
 data directory. A scheduled tick skips while any crawl is active; a manual
 refresh reports the active crawl instead of starting a second writer.
