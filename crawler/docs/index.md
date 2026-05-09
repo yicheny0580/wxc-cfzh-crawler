@@ -75,6 +75,12 @@ Detail-page persistence is transactionally grouped: a fetched root post or reply
 is saved together with child frontier rows discovered from that response before
 the parent frontier row is marked done. If the process stops mid-detail, startup
 resets that in-progress frontier row to pending so it can be retried.
+Detail responses that return HTTP 200 but expose no parseable title, author,
+published time, body, byte count, or read count are treated as failed frontier
+attempts instead of being saved as blank post or reply records.
+Every crawl startup resets failed frontier rows to pending with a fresh attempt
+budget, so each refresh retries prior failures even when the requested listing
+pages would not rediscover those posts or replies.
 
 `ROBOTSTXT_OBEY` is intentionally disabled because this crawler is admin-authorized for the target site. The spider still uses conservative concurrency, delay, retry, timeout, and AutoThrottle settings.
 

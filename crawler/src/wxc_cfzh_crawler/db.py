@@ -37,6 +37,9 @@ from wxc_cfzh_crawler._db_frontier import (
     mark_frontier_failed as mark_frontier_failed,
 )
 from wxc_cfzh_crawler._db_frontier import (
+    reset_failed_frontier as reset_failed_frontier,
+)
+from wxc_cfzh_crawler._db_frontier import (
     reset_in_progress_frontier as reset_in_progress_frontier,
 )
 from wxc_cfzh_crawler._db_frontier import (
@@ -101,6 +104,7 @@ __all__ = [
     "init_db",
     "mark_frontier_done",
     "mark_frontier_failed",
+    "reset_failed_frontier",
     "reset_in_progress_frontier",
     "save_listing_record_without_detail",
     "save_post_detail",

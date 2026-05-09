@@ -12,6 +12,7 @@ from wxc_cfzh_crawler.db import (
     fetch_replies,
     fetch_root_posts,
     mark_frontier_done,
+    mark_frontier_failed,
     upsert_frontier_entry,
     upsert_post,
 )
@@ -271,6 +272,49 @@ def test_parse_index_schedules_changed_root_and_reopened_replies(tmp_path: Path)
         assert row["status"] == "done"
 
 
+def test_parse_index_requeues_failed_frontier_without_listing_rediscovery(
+    tmp_path: Path,
+) -> None:
+    spider = CfzhSpider(
+        pages=1,
+        max_requests=1,
+        database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}",
+    )
+    conn = spider.frontier_conn()
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="999",
+            url="https://bbs.wenxuecity.com/cfzh/999.html",
+            record_type="post",
+            root_post_id="999",
+            listing_title="Previously failed",
+        ),
+    )
+    claimed = claim_next_frontier(conn)
+    assert claimed is not None
+    mark_frontier_failed(conn, "999", http_status=500, error="temporary upstream error")
+    conn.execute("UPDATE frontier SET attempts = 3 WHERE post_id = '999'")
+    conn.commit()
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body><div id="postlist"></div></body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert request_post_ids(results) == ["999"]
+    row = fetch_frontier_row(conn, "999")
+    assert row is not None
+    assert row["status"] == "in_progress"
+    assert row["attempts"] == 1
+
+
 def test_parse_root_post_saves_atomically_and_schedules_replies(tmp_path: Path) -> None:
     spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
     response = response_for("thread.html", "https://bbs.wenxuecity.com/cfzh/100.html")
@@ -360,6 +404,39 @@ def test_parse_reply_saves_atomically_and_schedules_nested_replies(tmp_path: Pat
     replies = fetch_replies(spider.frontier_conn(), root_post_id="100")
     assert [reply["reply_id"] for reply in replies] == ["102"]
     assert replies[0]["parent_reply_id"] == "101"
+
+
+def test_parse_root_post_rejects_sparse_detail_response(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages=1, database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        spider.frontier_conn(),
+        FrontierRecord(
+            post_id="999",
+            url="https://bbs.wenxuecity.com/cfzh/999.html",
+            record_type="post",
+            root_post_id="999",
+        ),
+    )
+    request = scrapy.Request(
+        "https://bbs.wenxuecity.com/cfzh/999.html",
+        meta={"frontier_post_id": "999"},
+    )
+    response = TextResponse(
+        url=request.url,
+        body=b"<!doctype html><html><body>loading...</body></html>",
+        encoding="utf-8",
+        request=request,
+    )
+
+    results = list(spider.parse_root_post(response))
+
+    assert results == []
+    assert fetch_root_posts(spider.frontier_conn()) == []
+    row = fetch_frontier_row(spider.frontier_conn(), "999")
+    assert row is not None
+    assert row["status"] == "failed"
+    assert row["last_http_status"] == 200
+    assert "No parseable post detail" in str(row["last_error"])
 
 
 def test_parse_failure_logs_failed_progress(tmp_path: Path, caplog) -> None:

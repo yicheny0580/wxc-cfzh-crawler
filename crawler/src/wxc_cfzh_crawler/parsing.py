@@ -14,6 +14,15 @@ LISTING_AUTHOR_SELECTOR = (
     "a[href*='passport.wenxuecity.com/members/index.php'][href*='act=profile'], "
     "a[href*='passport.wenxuecity.com/profile.php']"
 )
+DETAIL_REQUIRED_ANY_FIELDS = (
+    "title",
+    "author",
+    "published_at",
+    "body_text",
+    "body_html",
+    "byte_count",
+    "read_count",
+)
 
 
 @dataclass(frozen=True)
@@ -53,6 +62,10 @@ def parse_int(value: str | None) -> int | None:
     if not match:
         return None
     return int(match.group(0).replace(",", ""))
+
+
+def has_parseable_detail(record: dict[str, Any]) -> bool:
+    return any(record.get(field) is not None for field in DETAIL_REQUIRED_ANY_FIELDS)
 
 
 def parse_datetime(value: str | None) -> datetime | None:
@@ -266,7 +279,7 @@ def extract_post_record(response: Any, *, meta: dict[str, Any] | None = None) ->
     body_html = body_selector.get()
     body_text = normalize_text(body_selector.xpath("string(.)").get())
 
-    return {
+    record = {
         "item_type": "post",
         "post_id": post_id,
         "url": response.url,
@@ -282,6 +295,9 @@ def extract_post_record(response: Any, *, meta: dict[str, Any] | None = None) ->
         "read_count": read_count,
         "reply_count": parse_reply_count(meta.get("listing_text")),
     }
+    if not has_parseable_detail(record):
+        raise ValueError(f"No parseable post detail fields in response: {response.url}")
+    return record
 
 
 def extract_reply_record(response: Any, *, meta: dict[str, Any]) -> dict[str, Any]:

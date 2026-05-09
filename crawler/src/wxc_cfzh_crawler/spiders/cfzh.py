@@ -13,6 +13,7 @@ from wxc_cfzh_crawler.db import (
     fetch_crawl_progress,
     format_crawl_progress,
     mark_frontier_failed,
+    reset_failed_frontier,
     reset_in_progress_frontier,
     save_listing_record_without_detail,
     save_post_detail,
@@ -105,6 +106,9 @@ class CfzhSpider(scrapy.Spider):
         if self.frontier_prepared:
             return
         reset_in_progress_frontier(self.frontier_conn())
+        requeued = reset_failed_frontier(self.frontier_conn())
+        if requeued:
+            self.logger.info("CFZH requeued failed frontier rows count=%s", requeued)
         self.frontier_prepared = True
 
     def index_url(self, page_number: int) -> str:

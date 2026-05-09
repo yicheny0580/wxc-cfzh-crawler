@@ -44,7 +44,9 @@ def fetch_posts(
         FROM posts p
         {where_clause}
         ORDER BY
-            COALESCE(p.published_at, p.crawled_at, '') DESC,
+            p.published_at IS NULL ASC,
+            p.published_at DESC,
+            p.crawled_at DESC,
             CAST(p.post_id AS INTEGER) DESC,
             p.post_id DESC
         LIMIT ? OFFSET ?
@@ -113,7 +115,8 @@ def fetch_results(
                 NULL AS root_url,
                 p.body_text AS body_text,
                 p.crawled_at AS crawled_at,
-                COALESCE(p.published_at, p.crawled_at, '') AS sort_at,
+                CASE WHEN p.published_at IS NULL THEN 1 ELSE 0 END AS sort_is_undated,
+                p.published_at AS sort_at,
                 CAST(p.post_id AS INTEGER) AS numeric_id,
                 p.post_id AS record_id
             FROM posts p
@@ -153,7 +156,8 @@ def fetch_results(
                 p.url AS root_url,
                 r.body_text AS body_text,
                 r.crawled_at AS crawled_at,
-                COALESCE(r.published_at, r.crawled_at, '') AS sort_at,
+                CASE WHEN r.published_at IS NULL THEN 1 ELSE 0 END AS sort_is_undated,
+                r.published_at AS sort_at,
                 CAST(r.reply_id AS INTEGER) AS numeric_id,
                 r.reply_id AS record_id
             FROM replies r
@@ -193,7 +197,9 @@ def fetch_results(
             crawled_at
         FROM ({combined_sql}) results
         ORDER BY
+            sort_is_undated ASC,
             sort_at DESC,
+            crawled_at DESC,
             numeric_id DESC,
             record_id DESC
         LIMIT ? OFFSET ?

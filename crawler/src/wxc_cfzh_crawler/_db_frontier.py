@@ -163,6 +163,23 @@ def reset_in_progress_frontier(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
+def reset_failed_frontier(conn: sqlite3.Connection) -> int:
+    now = utc_now_text()
+    cursor = conn.execute(
+        """
+        UPDATE frontier
+        SET status = 'pending',
+            attempts = 0,
+            updated_at = ?,
+            last_error = NULL
+        WHERE status = 'failed'
+        """,
+        (now,),
+    )
+    conn.commit()
+    return int(cursor.rowcount or 0)
+
+
 def claim_next_frontier(
     conn: sqlite3.Connection,
     *,

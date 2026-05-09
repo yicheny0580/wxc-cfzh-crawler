@@ -12,6 +12,8 @@ from wxc_cfzh_crawler.db import (
     fetch_replies,
     fetch_root_posts,
     mark_frontier_done,
+    mark_frontier_failed,
+    reset_failed_frontier,
     reset_in_progress_frontier,
     save_post_detail,
     save_reply_detail,
@@ -156,6 +158,38 @@ def test_reset_in_progress_frontier_restores_pending_without_spending_attempt(
     assert row is not None
     assert row["status"] == "pending"
     assert row["attempts"] == 0
+
+
+def test_reset_failed_frontier_requeues_with_fresh_attempt_budget(tmp_path) -> None:
+    conn = connect(f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    upsert_frontier_entry(
+        conn,
+        FrontierRecord(
+            post_id="100",
+            url="https://bbs.wenxuecity.com/cfzh/100.html",
+            record_type="post",
+            root_post_id="100",
+        ),
+    )
+
+    claimed = claim_next_frontier(conn)
+    assert claimed is not None
+    mark_frontier_failed(conn, "100", http_status=500, error="temporary upstream error")
+    conn.execute("UPDATE frontier SET attempts = 3 WHERE post_id = '100'")
+    conn.commit()
+
+    assert reset_failed_frontier(conn) == 1
+
+    row = fetch_frontier_row(conn, "100")
+    assert row is not None
+    assert row["status"] == "pending"
+    assert row["attempts"] == 0
+    assert row["last_error"] is None
+
+    claimed_again = claim_next_frontier(conn)
+    assert claimed_again is not None
+    assert claimed_again["post_id"] == "100"
+    assert claimed_again["attempts"] == 1
 
 
 def test_frontier_delta_refresh_marks_root_and_known_replies_pending(tmp_path) -> None:

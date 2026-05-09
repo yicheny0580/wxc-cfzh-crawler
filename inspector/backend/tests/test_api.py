@@ -504,6 +504,60 @@ async def test_post_list_supports_published_date_filter(client: httpx.AsyncClien
 
 
 @pytest.mark.anyio
+async def test_undated_records_sort_after_dated_records(
+    client: httpx.AsyncClient,
+    db_path: Path,
+) -> None:
+    with sqlite3.connect(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO posts (
+                post_id, url, forum, title, author, author_profile_url, published_at, edited_at,
+                body_text, body_html, byte_count, read_count, reply_count, crawled_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                "999",
+                "https://bbs.wenxuecity.com/cfzh/999.html",
+                "cfzh",
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                "2026-04-25T11:00:00",
+            ),
+        )
+        conn.commit()
+
+    posts_response = await client.get("/api/posts", params={"limit": 3})
+    results_response = await client.get(
+        "/api/results",
+        params={"include_posts": "true", "include_replies": "false", "limit": 3},
+    )
+
+    assert posts_response.status_code == 200
+    assert [item["post_id"] for item in posts_response.json()["items"]] == [
+        "200",
+        "100",
+        "999",
+    ]
+
+    assert results_response.status_code == 200
+    assert result_ids(results_response.json()["items"]) == [
+        ("post", "200"),
+        ("post", "100"),
+        ("post", "999"),
+    ]
+
+
+@pytest.mark.anyio
 async def test_results_include_posts_and_replies_with_root_metadata(
     client: httpx.AsyncClient,
 ) -> None:
@@ -636,7 +690,7 @@ async def test_results_published_date_filter_composes_and_excludes_undated(
     )
 
     assert unfiltered_posts.status_code == 200
-    assert result_ids(unfiltered_posts.json()["items"]) == [("post", "100"), ("post", "200")]
+    assert result_ids(unfiltered_posts.json()["items"]) == [("post", "200"), ("post", "100")]
 
     assert dated_posts.status_code == 200
     assert result_ids(dated_posts.json()["items"]) == [("post", "200")]

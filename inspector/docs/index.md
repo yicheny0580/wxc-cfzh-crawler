@@ -86,6 +86,10 @@ active.
 `published_to`, `published_timezone`, `limit`, and `offset` query parameters for
 post-only lists.
 
+List endpoints order dated records by source `published_at` descending. Records
+without a source publish time sort after dated records instead of using crawl
+time as a primary recency fallback.
+
 The source forum publishes timestamps without an offset. Inspector API responses
 interpret post and reply `published_at`/`edited_at` values as
 `America/Los_Angeles` and return offset-aware ISO strings so the browser can
