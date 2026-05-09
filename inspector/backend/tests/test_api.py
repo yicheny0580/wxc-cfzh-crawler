@@ -9,9 +9,11 @@ from pathlib import Path
 import httpx
 import pytest
 
+from app._db_connection import resolve_repo_root
 from app._image_proxy import MAX_IMAGE_BYTES, ImageProxyFetchError, ProxiedImage, fetch_image_bytes
 from app.crawl import CrawlManager, fetch_crawl_progress
 from app.main import app
+from app.settings import display_db_path
 
 
 def result_ids(items: list[dict[str, object]]) -> list[tuple[object, object]]:
@@ -435,7 +437,7 @@ async def test_crawl_start_defaults_to_five_pages_and_current_db(
     payload = response.json()
     assert payload["state"] == "running"
     assert payload["pages"] == 5
-    assert payload["db_path"] == str(db_path)
+    assert payload["db_path"] == display_db_path(str(db_path))
     assert payload["progress"] is None
 
     command, kwargs = factory.commands[0]
@@ -525,7 +527,7 @@ async def test_crawl_websocket_sends_initial_status(
     payload = websocket.sent[0]
     assert websocket.accepted is True
     assert payload["state"] == "idle"
-    assert payload["db_path"] == str(db_path)
+    assert payload["db_path"] == display_db_path(str(db_path))
 
 
 @pytest.mark.anyio
@@ -551,6 +553,23 @@ async def test_public_mode_hides_db_path_and_blocks_crawl_controls(
     assert status_response.status_code == 404
     assert start_response.status_code == 404
     assert stop_response.status_code == 404
+
+
+def test_display_db_path_uses_relative_repo_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("WXC_INSPECT_PUBLIC", raising=False)
+
+    db_path = resolve_repo_root() / "data" / "crawler.sqlite3"
+
+    assert display_db_path(str(db_path)) == "data/crawler.sqlite3"
+
+
+def test_display_db_path_hides_external_parent_path(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.delenv("WXC_INSPECT_PUBLIC", raising=False)
+
+    assert display_db_path(str(tmp_path / "private.sqlite3")) == "private.sqlite3"
 
 
 @pytest.mark.anyio

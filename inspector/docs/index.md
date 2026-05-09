@@ -100,6 +100,11 @@ render them in local time.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
 
+Browser-facing `db_path` values are display labels, not filesystem access
+contracts. Local repo databases are shown relative to the repository root, such
+as `data/crawler.sqlite3`; external local paths are reduced to their filename;
+public mode uses the generic `SQLite database` label.
+
 `GET /api/posts/{post_id}/image?src=...` is a post-scoped image proxy for the
 reader's post-image export workflow. It only returns HTTP(S) images whose URL is
 present in that post's stored body HTML after normal forum-relative URL

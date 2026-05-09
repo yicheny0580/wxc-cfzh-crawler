@@ -13,6 +13,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from app._db_connection import connect_readonly, resolve_db_path, resolve_repo_root
 from app.schemas import CrawlProgressCounts, CrawlStatusResponse
+from app.settings import display_db_path
 
 CrawlState = Literal["idle", "running", "stopping", "succeeded", "failed", "stopped"]
 ACTIVE_STATES: set[CrawlState] = {"running", "stopping"}
@@ -184,7 +185,7 @@ class CrawlManager:
         if job is None:
             return CrawlStatusResponse(
                 state="idle",
-                db_path=str(db_path),
+                db_path=display_db_path(str(db_path)),
                 progress=progress,
             )
 
@@ -201,7 +202,7 @@ class CrawlManager:
             error=job.error,
             stdout_tail=job.stdout_tail or None,
             stderr_tail=job.stderr_tail or None,
-            db_path=str(db_path),
+            db_path=display_db_path(str(db_path)),
             progress=progress,
         )
 
