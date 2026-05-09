@@ -1,4 +1,4 @@
-import { useMemo, type KeyboardEvent, type MouseEvent } from "react";
+import { memo, useMemo, type KeyboardEvent, type MouseEvent } from "react";
 
 import { sanitizeBodyHtml } from "./bodyHtml";
 
@@ -28,7 +28,7 @@ function readerImageFromTarget(target: EventTarget | null, container: HTMLElemen
   };
 }
 
-export function BodyContent({
+export const BodyContent = memo(function BodyContent({
   html,
   text,
   className = "",
@@ -40,6 +40,7 @@ export function BodyContent({
   onImageOpen?: (image: ReaderImage) => void;
 }) {
   const sanitizedHtml = useMemo(() => sanitizeBodyHtml(html), [html]);
+  const innerHtml = useMemo(() => ({ __html: sanitizedHtml }), [sanitizedHtml]);
   const classes = `reader-body ${className}`.trim();
 
   const openImageFromEvent = (
@@ -72,7 +73,7 @@ export function BodyContent({
         className={`reader-body-html ${classes}`}
         onClick={openImageFromEvent}
         onKeyDown={handleKeyDown}
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        dangerouslySetInnerHTML={innerHtml}
       />
     );
   }
@@ -82,4 +83,4 @@ export function BodyContent({
   }
 
   return <div className="text-sm text-stone-500">No body text.</div>;
-}
+});
