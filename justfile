@@ -24,6 +24,83 @@ setup:
     uv sync
     npm --prefix inspector/frontend ci
 
+# Install dependencies, then download the latest data snapshot when no database exists.
+setup-data *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    just setup
+    if [[ -f data/crawler.sqlite3 ]]; then
+      echo "data/crawler.sqlite3 already exists; skipping snapshot download."
+    else
+      just data-download "$@"
+    fi
+
+# Create local SQLite snapshot assets; options: db=data/crawler.sqlite3 out=data/publish.
+data-snapshot *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    db=data/crawler.sqlite3
+    out=data/publish
+    for option in "$@"; do
+      case "$option" in
+        db=*|--db=*) db="${option#*=}" ;;
+        out=*|--out=*) out="${option#*=}" ;;
+        *)
+          echo "Unknown data-snapshot option: $option" >&2
+          echo "Use key=value options: db=, out=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    uv run python scripts/data_snapshot.py snapshot --db "$db" --out "$out"
+
+# Publish a SQLite snapshot to GitHub Releases; options: db= out= repo=.
+data-publish *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    db=data/crawler.sqlite3
+    out=data/publish
+    repo=yicheny0580/wxc-cfzh-crawler
+    for option in "$@"; do
+      case "$option" in
+        db=*|--db=*) db="${option#*=}" ;;
+        out=*|--out=*) out="${option#*=}" ;;
+        repo=*|--repo=*) repo="${option#*=}" ;;
+        *)
+          echo "Unknown data-publish option: $option" >&2
+          echo "Use key=value options: db=, out=, repo=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    uv run python scripts/data_snapshot.py publish --db "$db" --out "$out" --repo "$repo"
+
+# Download latest published SQLite snapshot; options: db=data/crawler.sqlite3 repo= force=false.
+data-download *options:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    db=data/crawler.sqlite3
+    repo=yicheny0580/wxc-cfzh-crawler
+    force=false
+    for option in "$@"; do
+      case "$option" in
+        db=*|--db=*) db="${option#*=}" ;;
+        repo=*|--repo=*) repo="${option#*=}" ;;
+        force=*|--force=*) force="${option#*=}" ;;
+        --force) force=true ;;
+        *)
+          echo "Unknown data-download option: $option" >&2
+          echo "Use key=value options: db=, repo=, force=." >&2
+          exit 2
+          ;;
+      esac
+    done
+    args=(download --db "$db" --repo "$repo")
+    if [[ "$force" == "true" ]]; then
+      args+=(--force)
+    fi
+    uv run python scripts/data_snapshot.py "${args[@]}"
+
 # Crawl recent CFZH pages; options: pages=3 max_requests= database_url= log_level=.
 crawl *options:
     #!/usr/bin/env bash

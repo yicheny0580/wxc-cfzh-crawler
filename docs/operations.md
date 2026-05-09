@@ -21,6 +21,40 @@ just doctor
 The command harness source of truth is [design-docs/harness.md](design-docs/harness.md).
 Update that doc when setup, command discovery, or validation behavior changes.
 
+## Data Snapshots
+
+Clone users can bootstrap `data/crawler.sqlite3` from the latest published
+GitHub Release snapshot instead of running a fresh crawl:
+
+```bash
+just setup-data
+```
+
+`setup-data` runs normal dependency setup, then downloads the latest snapshot
+only when `data/crawler.sqlite3` is missing. To download explicitly:
+
+```bash
+just data-download
+just data-download force=true
+```
+
+Download verifies the release manifest checksum and SQLite integrity before the
+database is installed. `force=true` replaces an existing local database and
+removes stale SQLite sidecar files for that path.
+
+Maintainers publish snapshots from a machine that has the local database and
+the GitHub CLI authenticated:
+
+```bash
+just data-snapshot
+just data-publish
+```
+
+Published release assets are `crawler.sqlite3.gz` and
+`crawler-snapshot.json`. Snapshot metadata includes `published_at`,
+`latest_crawl_at`, counts, sizes, checksums, and the release tag. The latest
+crawl timestamp is computed from `crawled_at` across posts and replies.
+
 ## Exec Plans
 
 For qualifying agent work, create the active exec-plan as the first tracked

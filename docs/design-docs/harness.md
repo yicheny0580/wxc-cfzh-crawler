@@ -9,6 +9,7 @@ one interface.
 - `just`: root command runner.
 - `uv`: Python workspace and package runner.
 - `npm`: inspector frontend dependency and build runner.
+- `gh`: optional GitHub CLI for maintainers who publish data snapshots.
 
 Run the environment checks from the repository root:
 
@@ -28,12 +29,17 @@ just setup
 `just setup` installs Python workspace dependencies with `uv sync` and frontend
 dependencies with `npm --prefix inspector/frontend ci`.
 
+`just setup-data` runs `just setup`, then downloads the latest published SQLite
+snapshot only when `data/crawler.sqlite3` is missing.
+
 ## Command Surface
 
 - Start command discovery with `just list`.
 - Use named `key=value` recipe options for user-facing workflows.
 - Keep low-level framework commands available for troubleshooting, but advertise
   root recipes for normal use.
+- Use `just data-download` for clone bootstrap from GitHub Release snapshots and
+  `just data-publish` for maintainer snapshot publishing.
 - Before adding or changing user-facing commands, update
   [../operations.md](../operations.md) and this harness doc with the intended
   command behavior. Then implement the `justfile` change and revise docs if the

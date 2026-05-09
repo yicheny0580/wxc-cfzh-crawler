@@ -51,6 +51,8 @@ the underlying package tools directly.
 - Production crawling is owned by the crawler admin CLI and scheduler service.
   Manual and scheduled refreshes must share one runtime lock so crawls do not overlap.
 - Shared local data paths should resolve to root `data/` unless explicitly overridden.
+- Published SQLite snapshots are GitHub Release assets; SQLite databases remain
+  ignored runtime data and are not tracked in Git history.
 - User-facing workflows should be added to the root `justfile` before adding README-only command recipes.
 - Changes to boundaries, package ownership, or public interfaces should follow
   the exec-plan gate when it applies, then update the relevant source-of-truth

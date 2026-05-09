@@ -17,6 +17,13 @@ replies, and records frontier state so interrupted work can be retried. Progress
 should be visible in an interactive terminal and still leave useful logs when
 output is redirected.
 
+## Bootstrap From Snapshot
+
+Clone users can download the latest published SQLite snapshot into
+`data/crawler.sqlite3` instead of re-crawling. The snapshot is distributed as a
+GitHub Release asset, not as a tracked Git file, and includes metadata for when
+the snapshot was published and when the database was last crawled.
+
 ## Export
 
 The user can export local records in two supported shapes:

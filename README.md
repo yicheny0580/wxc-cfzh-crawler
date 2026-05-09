@@ -6,6 +6,16 @@ Local-first crawler and SQLite inspector for the Wenxuecity `财富智汇` forum
 
 ```bash
 uv tool install rust-just
+just setup-data
+just inspect
+```
+
+`just setup-data` installs dependencies and downloads the latest published
+SQLite snapshot into `data/crawler.sqlite3` when no local database exists.
+
+To build the database yourself instead of downloading a snapshot:
+
+```bash
 just setup
 just crawl
 just inspect
@@ -51,6 +61,7 @@ just export-reddit
 just list
 just doctor
 just check
+just data-download
 ```
 
 `just` is the root command harness for local workflows. Run `just setup` after
