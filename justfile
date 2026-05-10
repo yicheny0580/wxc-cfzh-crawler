@@ -289,25 +289,33 @@ ops-status *options:
     bash scripts/ops_remote.sh "$@" -- \
       docker compose exec -T scheduler wxc-cfzh-admin status --json
 
-# Start a manual production crawl over SSH; options: pages=2 host= path=.
+# Start a manual production crawl over SSH; options: pages=2 all_pages=false host= path=.
 ops-refresh *options:
     #!/usr/bin/env bash
     set -euo pipefail
     pages=2
+    all_pages=false
     pass=()
     for option in "$@"; do
       case "$option" in
         pages=*|--pages=*) pages="${option#*=}" ;;
+        all_pages=*|all-pages=*|--all-pages=*) all_pages="${option#*=}" ;;
         host=*|--host=*|path=*|--path=*) pass+=("$option") ;;
         *)
           echo "Unknown ops-refresh option: $option" >&2
-          echo "Use key=value options: pages=, host=, path=." >&2
+          echo "Use key=value options: pages=, all_pages=, host=, path=." >&2
           exit 2
           ;;
       esac
     done
+    args=(refresh --reason manual)
+    if [[ "$all_pages" == "true" ]]; then
+      args+=(--all-pages)
+    else
+      args+=(--pages "$pages")
+    fi
     bash scripts/ops_remote.sh "${pass[@]}" -- \
-      docker compose exec -T scheduler wxc-cfzh-admin refresh --pages "$pages" --reason manual
+      docker compose exec -T scheduler wxc-cfzh-admin "${args[@]}"
 
 # Stop a production crawl over SSH; options: host= path=.
 ops-stop-crawl *options:
@@ -443,22 +451,30 @@ docker-local-down:
 docker-local-status:
     bash scripts/docker_local_admin.sh wxc-cfzh-admin status --json
 
-# Start a manual local Docker crawl; options: pages=2.
+# Start a manual local Docker crawl; options: pages=2 all_pages=false.
 docker-local-refresh *options:
     #!/usr/bin/env bash
     set -euo pipefail
     pages=2
+    all_pages=false
     for option in "$@"; do
       case "$option" in
         pages=*|--pages=*) pages="${option#*=}" ;;
+        all_pages=*|all-pages=*|--all-pages=*) all_pages="${option#*=}" ;;
         *)
           echo "Unknown docker-local-refresh option: $option" >&2
-          echo "Use key=value options: pages=." >&2
+          echo "Use key=value options: pages=, all_pages=." >&2
           exit 2
           ;;
       esac
     done
-    bash scripts/docker_local_admin.sh wxc-cfzh-admin refresh --pages "$pages" --reason local-docker
+    args=(refresh --reason local-docker)
+    if [[ "$all_pages" == "true" ]]; then
+      args+=(--all-pages)
+    else
+      args+=(--pages "$pages")
+    fi
+    bash scripts/docker_local_admin.sh wxc-cfzh-admin "${args[@]}"
 
 # Stop a local Docker crawl.
 docker-local-stop-crawl:

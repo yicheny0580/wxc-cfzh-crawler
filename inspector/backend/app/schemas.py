@@ -17,6 +17,7 @@ class HealthResponse(BaseModel):
 
 class CrawlStartRequest(BaseModel):
     pages: int = Field(default=5, ge=1, le=600)
+    all_pages: bool = False
 
 
 class CrawlProgressCounts(BaseModel):
@@ -29,6 +30,7 @@ class CrawlStatusResponse(BaseModel):
     state: Literal["idle", "running", "stopping", "succeeded", "failed", "stopped"]
     job_id: str | None = None
     pages: int | None = None
+    all_pages: bool = False
     started_at: datetime | None = None
     finished_at: datetime | None = None
     elapsed_seconds: float | None = None

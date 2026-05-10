@@ -94,14 +94,14 @@ export function useCrawlStatus(onTerminal: () => void, enabled: boolean) {
     }
   }, [status?.state]);
 
-  const start = (pages: number) => {
+  const start = (pages: number, allPages: boolean) => {
     setActionLoading(true);
     setError(null);
     if (!enabled) {
       setActionLoading(false);
       return;
     }
-    startCrawl(pages)
+    startCrawl(pages, allPages)
       .then(applyStatus)
       .catch((err: unknown) => {
         setError(err instanceof Error ? err.message : "Failed to start crawl.");

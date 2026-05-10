@@ -18,7 +18,7 @@ from wxc_cfzh_crawler import admin_runtime as runtime
 BUSY_EXIT = 75
 
 
-def crawler_command(pages: int) -> list[str]:
+def crawler_command(pages: int | str) -> list[str]:
     scrapy_bin = shutil.which("scrapy")
     command = [scrapy_bin] if scrapy_bin else [sys.executable, "-m", "scrapy"]
     return [
@@ -80,13 +80,21 @@ def status_payload() -> dict[str, Any]:
     }
 
 
-def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
+def run_refresh(
+    pages: int,
+    reason: str,
+    *,
+    all_pages: bool = False,
+    quiet_busy: bool = False,
+) -> int:
     run_id = uuid.uuid4().hex
     started_at = runtime.utc_now_text()
+    requested_pages: int | str = "all" if all_pages else pages
     lock_payload: dict[str, Any] = {
         "run_id": run_id,
         "reason": reason,
-        "pages": pages,
+        "pages": requested_pages,
+        "all_pages": all_pages,
         "started_at": started_at,
     }
     acquired, active = runtime.acquire_lock(lock_payload)
@@ -99,7 +107,7 @@ def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
     log_handle = runtime.log_path().open("a", encoding="utf-8")
     process: subprocess.Popen[str] | None = None
     try:
-        command = crawler_command(pages)
+        command = crawler_command(requested_pages)
         env = os.environ.copy()
         env.update({"SCRAPY_SETTINGS_MODULE": "wxc_cfzh_crawler.settings", "WXC_PROGRESS": "off"})
         process = subprocess.Popen(
@@ -118,13 +126,20 @@ def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
                 "state": "running",
                 "run_id": run_id,
                 "reason": reason,
-                "pages": pages,
+                "pages": requested_pages,
+                "all_pages": all_pages,
                 "pid": process.pid,
                 "pgid": pgid,
                 "started_at": started_at,
             }
         )
-        runtime.append_log("crawl_started", run_id=run_id, reason=reason, pages=pages)
+        runtime.append_log(
+            "crawl_started",
+            run_id=run_id,
+            reason=reason,
+            pages=requested_pages,
+            all_pages=all_pages,
+        )
         return_code = process.wait()
         finished_at = runtime.utc_now_text()
         state = "succeeded" if return_code == 0 else "stopped" if return_code < 0 else "failed"
@@ -133,7 +148,8 @@ def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
                 "state": state,
                 "run_id": run_id,
                 "reason": reason,
-                "pages": pages,
+                "pages": requested_pages,
+                "all_pages": all_pages,
                 "pid": process.pid,
                 "pgid": pgid,
                 "started_at": started_at,
@@ -141,7 +157,13 @@ def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
                 "return_code": return_code,
             }
         )
-        runtime.append_log("crawl_finished", run_id=run_id, state=state, return_code=return_code)
+        runtime.append_log(
+            "crawl_finished",
+            run_id=run_id,
+            state=state,
+            return_code=return_code,
+            all_pages=all_pages,
+        )
         print_json({"state": state, "run_id": run_id, "return_code": return_code})
         return int(return_code or 0)
     finally:
@@ -150,7 +172,7 @@ def run_refresh(pages: int, reason: str, *, quiet_busy: bool = False) -> int:
 
 
 def command_refresh(args: argparse.Namespace) -> int:
-    return run_refresh(args.pages, args.reason)
+    return run_refresh(args.pages, args.reason, all_pages=args.all_pages)
 
 
 def wait_for_stop(lock: dict[str, Any], force_after: float) -> str:
@@ -282,6 +304,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     refresh = subparsers.add_parser("refresh")
     refresh.add_argument("--pages", type=int, default=2)
+    refresh.add_argument("--all-pages", action="store_true")
     refresh.add_argument("--reason", default="manual")
     refresh.set_defaults(func=command_refresh)
 

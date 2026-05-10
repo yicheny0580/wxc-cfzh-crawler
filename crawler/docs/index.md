@@ -58,7 +58,7 @@ By default, recipe-driven data writes go to root `data/crawler.sqlite3`.
 
 ## Behavior Notes
 
-Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen. When that happens, the root post and known replies under that root are reopened so nested reply links can be rediscovered.
+Listing pages are discovery feeds only. Stored data is organized by post/reply identity, not by listing page number. Already-crawled URLs are skipped unless a root listing shows a higher reply count than the database has seen. When that happens, the root post and known replies under that root are reopened so nested reply links can be rediscovered. Crawler runs normally scan a configured number of recent listing pages; manual all-pages runs use `pages=all`, detect the current forum page count from the first listing page, and fail clearly if that count cannot be detected.
 
 Listing rows expose byte counts and nesting. When a discovered post or reply is
 listed as `0 bytes` and the listing/comment tree shows no nested replies, the
@@ -86,7 +86,8 @@ counts, and no longer retried until a future listing update reopens it.
 
 Production manual refresh and scheduled refresh share a lock under the runtime
 data directory. A scheduled tick skips while any crawl is active; a manual
-refresh reports the active crawl instead of starting a second writer.
+refresh reports the active crawl instead of starting a second writer. Manual
+refresh can request all pages; scheduled refresh remains numeric.
 
 ## Checks
 

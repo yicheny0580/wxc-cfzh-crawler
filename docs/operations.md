@@ -103,6 +103,7 @@ Example:
 
 ```bash
 just crawl pages=5 max_requests=25 log_level=INFO
+just crawl pages=all
 ```
 
 ## Export
@@ -124,10 +125,12 @@ FastAPI.
 
 The inspector Refresh control starts a real crawler run against the same SQLite
 database that the UI is inspecting. It defaults to 5 listing pages and accepts
-1-600 pages. The UI connects to crawl status over WebSocket, so opening or
-reloading the page while a crawl is active shows the current run. Only one crawl
-can run per inspector backend process; a running crawl can be asked to stop, and
-the UI remains in a stopping state until the crawler process exits.
+1-600 pages, or an explicit manual all-pages mode that auto-detects the current
+forum page count from the first listing page. The UI connects to crawl status
+over WebSocket, so opening or reloading the page while a crawl is active shows
+the current run. Only one crawl can run per inspector backend process; a running
+crawl can be asked to stop, and the UI remains in a stopping state until the
+crawler process exits.
 
 Backend-only startup is available for troubleshooting and skips the frontend build:
 
@@ -157,6 +160,7 @@ Remote operations are exposed through root recipes:
 ```bash
 just ops-status
 just ops-refresh pages=2
+just ops-refresh all_pages=true
 just ops-stop-crawl
 just ops-scheduler-pause
 just ops-scheduler-resume
@@ -169,7 +173,8 @@ In production, browser refresh is read-only. Crawling is controlled by the
 in-container `wxc-cfzh-admin` CLI and the scheduler service. Manual and
 scheduled refreshes share one lock, so a scheduled tick skips while a manual
 crawl is active and manual refresh reports the active crawl when the scheduler
-already owns the lock.
+already owns the lock. Manual refresh can request all current listing pages;
+scheduled refresh remains numeric.
 
 ## Local Docker Verification
 
@@ -184,6 +189,7 @@ just docker-local-up-scheduler port=8766 pages=1 interval=120
 just docker-local-status
 just docker-local-stop-crawl
 just docker-local-refresh pages=1
+just docker-local-refresh all_pages=true
 just docker-local-scheduler-status
 just docker-local-scheduler-pause
 just docker-local-scheduler-resume

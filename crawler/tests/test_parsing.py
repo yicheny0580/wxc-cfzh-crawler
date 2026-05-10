@@ -10,6 +10,7 @@ from wxc_cfzh_crawler.parsing import (
     extract_post_record,
     extract_reply_record,
     extract_root_index_entries,
+    extract_total_pages,
     post_id_from_url,
 )
 
@@ -29,6 +30,42 @@ def test_post_id_from_url() -> None:
     assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854.html") == "74854"
     assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/74854-print.html") == "74854"
     assert post_id_from_url("https://bbs.wenxuecity.com/cfzh/?page=1") is None
+
+
+def test_extract_total_pages_reads_forum_page_count() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html><body><div>页数: (1,247)</div></body></html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    assert extract_total_pages(response) == 1247
+
+
+def test_extract_total_pages_falls_back_to_last_page_link() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html><body><a href="/cfzh/?page=647">末页</a></body></html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    assert extract_total_pages(response) == 647
+
+
+def test_extract_total_pages_returns_none_without_count() -> None:
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html><body><a href="/cfzh/?page=2">下一页</a></body></html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    assert extract_total_pages(response) is None
 
 
 def test_extract_index_entries_preserves_nested_parentage_and_skips_sticky() -> None:

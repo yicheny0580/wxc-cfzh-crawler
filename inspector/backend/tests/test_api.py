@@ -437,6 +437,7 @@ async def test_crawl_start_defaults_to_five_pages_and_current_db(
     payload = response.json()
     assert payload["state"] == "running"
     assert payload["pages"] == 5
+    assert payload["all_pages"] is False
     assert payload["db_path"] == display_db_path(str(db_path))
     assert payload["progress"] is None
 
@@ -454,6 +455,27 @@ async def test_crawl_start_defaults_to_five_pages_and_current_db(
     assert f"database_url=sqlite:///{db_path.as_posix()}" in command
     assert kwargs["cwd"]
     assert kwargs["env"]["WXC_PROGRESS"] == "off"
+
+    factory.processes[0].finish(0)
+    await wait_for_crawl_state(manager, "succeeded")
+
+
+@pytest.mark.anyio
+async def test_crawl_start_supports_manual_all_pages(
+    crawl_client: tuple[httpx.AsyncClient, CrawlManager, FakeSubprocessFactory],
+) -> None:
+    client, manager, factory = crawl_client
+
+    response = await client.post("/api/crawl", json={"all_pages": True})
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["state"] == "running"
+    assert payload["pages"] == 5
+    assert payload["all_pages"] is True
+
+    command, _ = factory.commands[0]
+    assert "pages=all" in command
 
     factory.processes[0].finish(0)
     await wait_for_crawl_state(manager, "succeeded")

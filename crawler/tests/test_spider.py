@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import pytest
 import scrapy
 from scrapy.http import TextResponse
 
@@ -41,6 +42,14 @@ def request_post_ids(results: list[object]) -> list[str]:
     return [result.meta["post_id"] for result in results if isinstance(result, scrapy.Request)]
 
 
+def index_request_urls(results: list[object]) -> list[str]:
+    return [
+        result.url
+        for result in results
+        if isinstance(result, scrapy.Request) and "post_id" not in result.meta
+    ]
+
+
 def mark_pending_frontier_done(spider: CfzhSpider) -> None:
     while row := claim_next_frontier(spider.frontier_conn()):
         mark_frontier_done(spider.frontier_conn(), str(row["post_id"]), http_status=200)
@@ -72,6 +81,44 @@ def test_parse_index_schedules_non_sticky_frontier_posts_and_replies(tmp_path: P
     results = list(spider.parse_index(response, page_number=1))
 
     assert request_post_ids(results) == ["100", "200", "101", "102"]
+
+
+def test_all_pages_parse_index_schedules_detected_listing_pages(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages="all", database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html>
+          <body>
+            <div>页数: (3)</div>
+            <div id="postlist"></div>
+          </body>
+        </html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    results = list(spider.parse_index(response, page_number=1))
+
+    assert spider.pages == 3
+    assert index_request_urls(results) == [
+        "https://bbs.wenxuecity.com/cfzh/?page=2",
+        "https://bbs.wenxuecity.com/cfzh/?page=3",
+    ]
+
+
+def test_all_pages_parse_index_requires_detectable_total_pages(tmp_path: Path) -> None:
+    spider = CfzhSpider(pages="all", database_url=f"sqlite:///{tmp_path / 'crawler.sqlite3'}")
+    response = response_from_html(
+        """
+        <!doctype html>
+        <html><body><div id="postlist"></div></body></html>
+        """,
+        "https://bbs.wenxuecity.com/cfzh/",
+    )
+
+    with pytest.raises(ValueError, match="Could not detect total CFZH listing pages"):
+        list(spider.parse_index(response, page_number=1))
 
 
 def test_parse_index_skips_zero_byte_leaf_details(tmp_path: Path) -> None:

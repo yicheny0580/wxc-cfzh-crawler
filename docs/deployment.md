@@ -174,6 +174,7 @@ Supported root commands:
 ```bash
 just ops-status
 just ops-refresh pages=2
+just ops-refresh all_pages=true
 just ops-stop-crawl
 just ops-scheduler-pause
 just ops-scheduler-resume
@@ -186,6 +187,7 @@ The in-container admin CLI is `wxc-cfzh-admin`. It supports:
 
 ```bash
 wxc-cfzh-admin refresh --pages 2 --reason manual
+wxc-cfzh-admin refresh --all-pages --reason manual
 wxc-cfzh-admin stop --wait --force-after 30
 wxc-cfzh-admin status --json
 wxc-cfzh-admin report
@@ -204,6 +206,8 @@ guessing which command to run first.
 
 - Manual refresh while a scheduled crawl is active reports the active crawl and
   exits without starting another process.
+- Manual refresh can request all current listing pages with `--all-pages`;
+  scheduled refresh remains bounded by a numeric `--pages` value.
 - Scheduled ticks skip while any crawl is active, log `skip_busy`, and try
   again on the next interval.
 - Stop while a crawl is active sends `SIGTERM` to the crawler process group,

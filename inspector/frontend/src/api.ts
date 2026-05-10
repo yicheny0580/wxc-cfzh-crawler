@@ -66,14 +66,14 @@ export function getCrawlStatus(): Promise<CrawlStatusResponse> {
   return request<CrawlStatusResponse>("/api/crawl/status");
 }
 
-export function startCrawl(pages: number): Promise<CrawlStatusResponse> {
+export function startCrawl(pages: number, allPages: boolean): Promise<CrawlStatusResponse> {
   return request<CrawlStatusResponse>("/api/crawl", {
     method: "POST",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json"
     },
-    body: JSON.stringify({ pages })
+    body: JSON.stringify({ all_pages: allPages, pages })
   });
 }
 

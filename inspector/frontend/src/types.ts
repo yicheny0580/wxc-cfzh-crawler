@@ -19,6 +19,7 @@ export interface CrawlStatusResponse {
   state: CrawlState;
   job_id: string | null;
   pages: number | null;
+  all_pages: boolean;
   started_at: string | null;
   finished_at: string | null;
   elapsed_seconds: number | null;

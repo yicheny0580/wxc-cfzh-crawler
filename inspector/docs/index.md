@@ -54,12 +54,14 @@ start/stop routes.
 ## Crawl Refresh
 
 Refresh starts a crawler run from the inspector backend with a default of 5
-listing pages and a maximum of 600. The frontend subscribes to crawl status over
-WebSocket, so new browser sessions reflect an already-running backend crawl.
-Only one crawl runs at a time; Stop requests graceful process termination and
-shows `Stopping` until the process exits. Crawl status reports actionable failed
-frontier rows separately from suppressed persistent failures, so repeated
-upstream 500s do not make an otherwise successful refresh look failed.
+listing pages and a maximum of 600, or with an explicit manual all-pages mode
+that detects the current forum page count from the first listing page. The
+frontend subscribes to crawl status over WebSocket, so new browser sessions
+reflect an already-running backend crawl. Only one crawl runs at a time; Stop
+requests graceful process termination and shows `Stopping` until the process
+exits. Crawl status reports actionable failed frontier rows separately from
+suppressed persistent failures, so repeated upstream 500s do not make an
+otherwise successful refresh look failed.
 
 ## API
 

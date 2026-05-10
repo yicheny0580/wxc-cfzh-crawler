@@ -28,6 +28,7 @@ SubprocessFactory = Callable[..., Awaitable[asyncio.subprocess.Process]]
 class CrawlJob:
     job_id: str
     pages: int
+    all_pages: bool
     db_path: Path
     process: asyncio.subprocess.Process
     started_at: datetime
@@ -117,13 +118,18 @@ class CrawlManager:
         self._job: CrawlJob | None = None
         self._subscribers: set[asyncio.Queue[CrawlStatusResponse]] = set()
 
-    async def start(self, *, pages: int) -> tuple[bool, CrawlStatusResponse]:
+    async def start(
+        self,
+        *,
+        pages: int,
+        all_pages: bool = False,
+    ) -> tuple[bool, CrawlStatusResponse]:
         async with self._lock:
             if self._job is not None and self._job.state in ACTIVE_STATES:
                 return False, self.status()
 
             db_path = resolve_db_path()
-            command = self._build_command(pages=pages, db_path=db_path)
+            command = self._build_command(pages=pages, all_pages=all_pages, db_path=db_path)
             env = os.environ.copy()
             env.update(
                 {
@@ -141,7 +147,12 @@ class CrawlManager:
                     stderr=asyncio.subprocess.PIPE,
                 )
             except Exception as exc:  # noqa: BLE001
-                self._job = self._failed_start_job(pages=pages, db_path=db_path, error=str(exc))
+                self._job = self._failed_start_job(
+                    pages=pages,
+                    all_pages=all_pages,
+                    db_path=db_path,
+                    error=str(exc),
+                )
                 status = self.status()
                 await self._broadcast_status(status)
                 return True, status
@@ -149,6 +160,7 @@ class CrawlManager:
             self._job = CrawlJob(
                 job_id=uuid.uuid4().hex,
                 pages=pages,
+                all_pages=all_pages,
                 db_path=db_path,
                 process=process,
                 started_at=utc_now(),
@@ -195,6 +207,7 @@ class CrawlManager:
             state=job.state,
             job_id=job.job_id,
             pages=job.pages,
+            all_pages=job.all_pages,
             started_at=job.started_at,
             finished_at=finished_at,
             elapsed_seconds=max(0.0, (elapsed_until - job.started_at).total_seconds()),
@@ -229,7 +242,8 @@ class CrawlManager:
         finally:
             self._subscribers.discard(queue)
 
-    def _build_command(self, *, pages: int, db_path: Path) -> list[str]:
+    def _build_command(self, *, pages: int, all_pages: bool, db_path: Path) -> list[str]:
+        page_argument = "all" if all_pages else str(pages)
         return [
             "uv",
             "run",
@@ -239,16 +253,24 @@ class CrawlManager:
             "crawl",
             "cfzh",
             "-a",
-            f"pages={pages}",
+            f"pages={page_argument}",
             "-a",
             f"database_url={sqlite_url_for_path(db_path)}",
         ]
 
-    def _failed_start_job(self, *, pages: int, db_path: Path, error: str) -> CrawlJob:
+    def _failed_start_job(
+        self,
+        *,
+        pages: int,
+        all_pages: bool,
+        db_path: Path,
+        error: str,
+    ) -> CrawlJob:
         now = utc_now()
         return CrawlJob(
             job_id=uuid.uuid4().hex,
             pages=pages,
+            all_pages=all_pages,
             db_path=db_path,
             process=_CompletedProcess(),
             started_at=now,

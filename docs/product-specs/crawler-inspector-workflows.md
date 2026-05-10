@@ -87,6 +87,10 @@ should move the UI into a stopping state until the crawler subprocess exits.
 Refresh status should separate actionable failed frontier rows from suppressed
 persistent failures so a successful refresh is not presented as failed only
 because an upstream detail URL has repeatedly returned an unrecoverable error.
+Manual refresh can run either against a bounded number of recent listing pages
+or, when explicitly enabled, against all current listing pages. All-pages mode
+detects the current page count from the first forum listing response and fails
+clearly if that count cannot be detected.
 
 In public deployment mode, browser Refresh is read-only: it refetches the latest
 SQLite-backed API data and must not start or stop a crawler. Production crawl
@@ -98,6 +102,9 @@ The operator can manage the public deployment from the repository root through
 `just ops-*` recipes backed by the in-container `wxc-cfzh-admin` CLI. The
 operator can manually refresh, stop a running crawl, pause or resume the
 scheduler, inspect status, read logs, and generate a diagnostics report.
+Manual production refresh supports both numeric page counts and explicit
+all-pages refresh. Scheduled production refresh remains numeric so the
+background service does not unexpectedly crawl the entire forum.
 
 Manual and scheduled production crawls share one lock. If a scheduled crawl is
 running, manual refresh reports the active crawl instead of starting another. If

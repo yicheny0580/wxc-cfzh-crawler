@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import parse_qs, urljoin, urlparse
 
 POST_ID_RE = re.compile(r"/cfzh/(\d+)(?:-print)?\.html(?:[?#].*)?$")
 DATE_PATTERNS = ("%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S")
@@ -62,6 +62,33 @@ def parse_int(value: str | None) -> int | None:
     if not match:
         return None
     return int(match.group(0).replace(",", ""))
+
+
+def page_number_from_url(url: str | None) -> int | None:
+    if not url:
+        return None
+    values = parse_qs(urlparse(url).query).get("page")
+    if not values:
+        return None
+    return parse_int(values[0])
+
+
+def extract_total_pages(response: Any) -> int | None:
+    text = normalize_text(response.xpath("string(.)").get())
+    if text:
+        match = re.search(r"页数\s*[:：]\s*\(?\s*([\d,]+)\s*\)?", text)
+        if match:
+            return parse_int(match.group(1))
+
+    for anchor in response.css("a"):
+        label = normalize_text(anchor.xpath("string(.)").get()) or ""
+        if "末页" not in label and "最后" not in label:
+            continue
+        href = anchor.attrib.get("href")
+        page_number = page_number_from_url(response.urljoin(href) if href else None)
+        if page_number is not None:
+            return page_number
+    return None
 
 
 def has_parseable_detail(record: dict[str, Any]) -> bool:

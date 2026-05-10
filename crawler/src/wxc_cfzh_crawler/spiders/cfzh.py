@@ -33,12 +33,14 @@ from wxc_cfzh_crawler.parsing import (
     extract_index_entries,
     extract_post_record,
     extract_reply_record,
+    extract_total_pages,
     post_id_from_url,
 )
 from wxc_cfzh_crawler.paths import default_database_url
 from wxc_cfzh_crawler.progress import get_crawl_progress_reporter
 
 DEFAULT_DATABASE_URL = default_database_url()
+ALL_PAGES_VALUES = {"all"}
 
 
 class CfzhSpider(scrapy.Spider):
@@ -56,7 +58,8 @@ class CfzhSpider(scrapy.Spider):
         **kwargs: object,
     ) -> None:
         super().__init__(*args, **kwargs)
-        self.pages = max(1, int(pages))
+        self.all_pages = self.is_all_pages_value(pages)
+        self.pages = None if self.all_pages else max(1, int(pages))
         self.start_url = start_url
         self.max_requests = self.optional_positive_int(max_requests)
         if self.max_requests is None:
@@ -65,10 +68,12 @@ class CfzhSpider(scrapy.Spider):
         self.scheduled_detail_requests = 0
         self.conn: sqlite3.Connection | None = None
         self.frontier_prepared = False
+        self.all_pages_discovered = False
 
     async def start(self):
         self.prepare_frontier()
-        for page in range(1, self.pages + 1):
+        last_page = 1 if self.all_pages else int(self.pages or 1)
+        for page in range(1, last_page + 1):
             yield scrapy.Request(
                 self.index_url(page),
                 callback=self.parse_index,
@@ -121,13 +126,33 @@ class CfzhSpider(scrapy.Spider):
     def parse_index(self, response: scrapy.http.Response, page_number: int):
         self.prepare_frontier()
 
+        total_pages: int | None = None
+        if self.all_pages and page_number == 1 and not self.all_pages_discovered:
+            total_pages = extract_total_pages(response)
+            if total_pages is None:
+                raise ValueError("Could not detect total CFZH listing pages for all-pages crawl.")
+            total_pages = max(1, total_pages)
+            self.pages = total_pages
+            self.all_pages_discovered = True
+
         entries = list(extract_index_entries(response))
         for entry in entries:
             self.save_or_enqueue_frontier_entry(entry)
 
         self.update_progress()
 
+        if total_pages is not None:
+            for page in range(2, total_pages + 1):
+                yield scrapy.Request(
+                    self.index_url(page),
+                    callback=self.parse_index,
+                    cb_kwargs={"page_number": page},
+                )
+
         yield from self.next_frontier_requests()
+
+    def is_all_pages_value(self, pages: str | int) -> bool:
+        return isinstance(pages, str) and pages.strip().lower() in ALL_PAGES_VALUES
 
     def parse_root_post(self, response: scrapy.http.Response):
         try:

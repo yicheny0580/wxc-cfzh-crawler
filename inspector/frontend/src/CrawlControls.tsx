@@ -79,9 +79,16 @@ function stateClass(state: CrawlState): string {
   return "border-stone-300 bg-white text-stone-800";
 }
 
-function pillDetail(status: CrawlStatusResponse | null, pages: string): string {
+function pillDetail(
+  status: CrawlStatusResponse | null,
+  pages: string,
+  allPages: boolean
+): string {
   const state = status?.state ?? "idle";
   if (state === "idle") {
+    if (allPages) {
+      return "All pages";
+    }
     return `${pages || "5"} pages`;
   }
   if (state === "running") {
@@ -133,10 +140,11 @@ export function CrawlControls({
   status: CrawlStatusResponse | null;
   error: string | null;
   actionLoading: boolean;
-  onStart: (pages: number) => void;
+  onStart: (pages: number, allPages: boolean) => void;
   onStop: () => void;
 }) {
   const [pages, setPages] = useState("5");
+  const [allPages, setAllPages] = useState(false);
   const [open, setOpen] = useState(false);
   const [hoverOpen, setHoverOpen] = useState(false);
   const [focusOpen, setFocusOpen] = useState(false);
@@ -150,14 +158,16 @@ export function CrawlControls({
   const hasError = Boolean(error) || state === "failed";
   const displayState: CrawlState = hasError && state === "idle" ? "failed" : state;
   const requestedPages = status?.pages ?? (pagesValid ? parsedPages : 5);
+  const statusAllPages = status && status.state !== "idle" ? status.all_pages : null;
+  const requestedAllPages = statusAllPages ?? allPages;
   const popoverOpen = open || hoverOpen || focusOpen;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!pagesValid || active || actionLoading) {
+    if ((!allPages && !pagesValid) || active || actionLoading) {
       return;
     }
-    onStart(parsedPages);
+    onStart(pagesValid ? parsedPages : 5, allPages);
   };
 
   useEffect(() => {
@@ -241,7 +251,9 @@ export function CrawlControls({
             <span className="block truncate text-sm font-semibold">
               {STATE_LABELS[displayState]}
             </span>
-            <span className="block truncate text-xs opacity-75">{pillDetail(status, pages)}</span>
+            <span className="block truncate text-xs opacity-75">
+              {pillDetail(status, pages, requestedAllPages)}
+            </span>
           </span>
         </span>
         <ChevronDown className="h-4 w-4 shrink-0 opacity-60" />
@@ -256,28 +268,40 @@ export function CrawlControls({
           role="dialog"
           className="border border-stone-300 bg-[#fbfaf7] p-3 text-stone-900 shadow-lg"
         >
-          <form className="flex items-end gap-2" onSubmit={submit}>
-            <label className="min-w-0 flex-1 text-xs font-medium uppercase text-stone-500">
-              <span className="mb-1 block">Pages</span>
+          <form className="flex flex-col gap-2" onSubmit={submit}>
+            <label className="flex min-h-9 items-center gap-2 text-sm font-medium text-stone-800">
               <input
-                type="number"
-                min={MIN_PAGES}
-                max={MAX_PAGES}
-                value={pages}
+                type="checkbox"
+                checked={allPages}
                 disabled={active || actionLoading}
-                onChange={(event) => setPages(event.target.value)}
-                className="h-9 w-full rounded-md border border-stone-300 bg-white px-2 text-sm font-normal text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                onChange={(event) => setAllPages(event.target.checked)}
+                className="h-4 w-4 rounded border-stone-300 text-emerald-700 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
               />
+              <span>All pages</span>
             </label>
-            <button
-              type="submit"
-              disabled={!pagesValid || active || actionLoading}
-              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
-              title="Start crawl refresh"
-            >
-              <RefreshCcw className="h-4 w-4" />
-              Refresh
-            </button>
+            <div className="flex items-end gap-2">
+              <label className="min-w-0 flex-1 text-xs font-medium uppercase text-stone-500">
+                <span className="mb-1 block">Pages</span>
+                <input
+                  type="number"
+                  min={MIN_PAGES}
+                  max={MAX_PAGES}
+                  value={pages}
+                  disabled={allPages || active || actionLoading}
+                  onChange={(event) => setPages(event.target.value)}
+                  className="h-9 w-full rounded-md border border-stone-300 bg-white px-2 text-sm font-normal text-stone-900 outline-none transition focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200 disabled:cursor-not-allowed disabled:opacity-60"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={(!allPages && !pagesValid) || active || actionLoading}
+                className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border border-stone-300 bg-white px-3 text-sm font-medium text-stone-800 transition hover:bg-stone-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 disabled:cursor-not-allowed disabled:opacity-50"
+                title="Start crawl refresh"
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Refresh
+              </button>
+            </div>
           </form>
 
           {(state === "running" || state === "stopping") && (
@@ -295,7 +319,10 @@ export function CrawlControls({
 
           <dl className="mt-3 grid grid-cols-2 gap-x-5 gap-y-2 border-t border-stone-200 pt-3">
             <Metric label="Status" value={STATE_LABELS[state]} />
-            <Metric label="Requested" value={formatNumber(requestedPages)} />
+            <Metric
+              label="Requested"
+              value={requestedAllPages ? "All pages" : formatNumber(requestedPages)}
+            />
             <Metric label="Elapsed" value={elapsedLabel(status?.elapsed_seconds ?? null)} />
             <Metric
               label="Saved"

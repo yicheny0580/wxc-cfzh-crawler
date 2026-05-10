@@ -252,7 +252,10 @@ async def crawl_status() -> CrawlStatusResponse:
 @app.post("/api/crawl", response_model=CrawlStatusResponse)
 async def start_crawl(request: CrawlStartRequest) -> CrawlStatusResponse:
     require_crawl_controls_enabled()
-    started, status = await crawl_manager.start(pages=request.pages)
+    started, status = await crawl_manager.start(
+        pages=request.pages,
+        all_pages=request.all_pages,
+    )
     if not started:
         raise HTTPException(status_code=409, detail=status.model_dump(mode="json"))
     return status
