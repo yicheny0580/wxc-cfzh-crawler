@@ -262,9 +262,9 @@ def db_path(tmp_path: Path) -> Path:
                 None,
                 "2026-04-25T09:00:00",
                 None,
-                "Apple and market structure notes.",
+                "Apple PE and market structure notes.",
                 (
-                    "<div id=\"msgbodyContent\"><p>Apple<br>and market structure notes.</p>"
+                    "<div id=\"msgbodyContent\"><p>Apple PE<br>and market structure notes.</p>"
                     "<p><img src=\"/upload/alpha.jpeg\" alt=\"Alpha chart\"></p></div>"
                 ),
                 34,
@@ -330,8 +330,8 @@ def db_path(tmp_path: Path) -> Path:
                 None,
                 "2026-04-25T09:06:00",
                 None,
-                "Nested reply body",
-                "<p>Nested reply body</p>",
+                "Nested PE reply body",
+                "<p>Nested PE reply body</p>",
                 17,
                 None,
                 2,
@@ -886,11 +886,44 @@ async def test_results_support_reply_search_and_pagination(client: httpx.AsyncCl
 
 
 @pytest.mark.anyio
-async def test_search_rejects_too_short_terms(client: httpx.AsyncClient) -> None:
-    response = await client.get("/api/results", params={"search": "aa"})
+async def test_search_supports_two_character_terms(client: httpx.AsyncClient) -> None:
+    results_response = await client.get("/api/results", params={"search": "PE"})
+    posts_response = await client.get("/api/posts", params={"search": "PE"})
+    replies_only_response = await client.get(
+        "/api/results",
+        params={"search": "PE", "include_posts": "false"},
+    )
+    mixed_term_response = await client.get("/api/results", params={"search": "PE apple"})
+
+    assert results_response.status_code == 200
+    assert result_ids(results_response.json()["items"]) == [("reply", "102"), ("post", "100")]
+
+    assert posts_response.status_code == 200
+    assert [item["post_id"] for item in posts_response.json()["items"]] == ["100"]
+
+    assert replies_only_response.status_code == 200
+    assert reply_result_ids(replies_only_response.json()["items"]) == [("reply", "102")]
+
+    assert mixed_term_response.status_code == 200
+    assert result_ids(mixed_term_response.json()["items"]) == [("post", "100")]
+
+
+@pytest.mark.anyio
+async def test_two_character_search_treats_wildcards_literally(
+    client: httpx.AsyncClient,
+) -> None:
+    response = await client.get("/api/results", params={"search": "P%"})
+
+    assert response.status_code == 200
+    assert response.json()["items"] == []
+
+
+@pytest.mark.anyio
+async def test_search_rejects_one_character_terms(client: httpx.AsyncClient) -> None:
+    response = await client.get("/api/results", params={"search": "P"})
 
     assert response.status_code == 422
-    assert response.json()["detail"] == "Search terms must be at least 3 characters."
+    assert response.json()["detail"] == "Search terms must be at least 2 characters."
 
 
 @pytest.mark.anyio

@@ -15,7 +15,8 @@ REPLY_COLUMNS = """
     forum_order, crawled_at
 """
 
-MIN_SEARCH_LENGTH = 3
+MIN_SEARCH_LENGTH = 2
+FTS_SEARCH_LENGTH = 3
 
 
 def row_to_dict(row: sqlite3.Row) -> dict[str, object]:
@@ -35,23 +36,63 @@ def compact_excerpt(value: str | None, limit: int = 220) -> str | None:
     return f"{compacted[: limit - 1].rstrip()}..."
 
 
-def fts_query(search: str | None) -> str | None:
+def parse_search_terms(search: str | None) -> list[str]:
     if search is None:
-        return None
+        return []
 
     terms = [term for term in search.strip().split() if term]
     if not terms:
-        return None
+        return []
 
     short_terms = [term for term in terms if len(term) < MIN_SEARCH_LENGTH]
     if short_terms:
         raise ValueError(f"Search terms must be at least {MIN_SEARCH_LENGTH} characters.")
 
-    quoted_terms = []
-    for term in terms:
-        escaped = term.replace('"', '""')
-        quoted_terms.append(f'"{escaped}"')
-    return " ".join(quoted_terms)
+    return terms
+
+
+def fts_query(term: str) -> str:
+    escaped = term.replace('"', '""')
+    return f'"{escaped}"'
+
+
+def substring_search_pattern(term: str) -> str:
+    escaped = term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
+def add_search_filters(
+    clauses: list[str],
+    params: list[object],
+    *,
+    search: str | None,
+    alias: str,
+    id_column: str,
+    fts_table: str,
+) -> None:
+    for term in parse_search_terms(search):
+        if len(term) >= FTS_SEARCH_LENGTH:
+            clauses.append(
+                f"""
+                {alias}.{id_column} IN (
+                    SELECT {id_column} FROM {fts_table} WHERE {fts_table} MATCH ?
+                )
+                """
+            )
+            params.append(fts_query(term))
+            continue
+
+        pattern = substring_search_pattern(term)
+        clauses.append(
+            f"""
+            (
+                COALESCE({alias}.title, '') LIKE ? ESCAPE '\\'
+                OR COALESCE({alias}.author, '') LIKE ? ESCAPE '\\'
+                OR COALESCE({alias}.body_text, '') LIKE ? ESCAPE '\\'
+            )
+            """
+        )
+        params.extend([pattern, pattern, pattern])
 
 
 def add_published_date_filters(
@@ -84,16 +125,14 @@ def post_filters(
     clauses: list[str] = []
     params: list[object] = []
 
-    query = fts_query(search)
-    if query:
-        clauses.append(
-            """
-            p.post_id IN (
-                SELECT post_id FROM posts_fts WHERE posts_fts MATCH ?
-            )
-            """
-        )
-        params.append(query)
+    add_search_filters(
+        clauses,
+        params,
+        search=search,
+        alias="p",
+        id_column="post_id",
+        fts_table="posts_fts",
+    )
 
     if author and author.strip():
         clauses.append("p.author = ?")
@@ -123,25 +162,24 @@ def record_filters(
     clauses: list[str] = []
     params: list[object] = []
 
-    query = fts_query(search)
-    if query and alias == "p":
-        clauses.append(
-            """
-            p.post_id IN (
-                SELECT post_id FROM posts_fts WHERE posts_fts MATCH ?
-            )
-            """
+    if alias == "p":
+        add_search_filters(
+            clauses,
+            params,
+            search=search,
+            alias=alias,
+            id_column="post_id",
+            fts_table="posts_fts",
         )
-        params.append(query)
-    elif query and alias == "r":
-        clauses.append(
-            """
-            r.reply_id IN (
-                SELECT reply_id FROM replies_fts WHERE replies_fts MATCH ?
-            )
-            """
+    elif alias == "r":
+        add_search_filters(
+            clauses,
+            params,
+            search=search,
+            alias=alias,
+            id_column="reply_id",
+            fts_table="replies_fts",
         )
-        params.append(query)
 
     if author and author.strip():
         clauses.append(f"{alias}.author = ?")

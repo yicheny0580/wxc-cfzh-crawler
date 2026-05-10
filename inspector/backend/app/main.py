@@ -83,9 +83,9 @@ def validate_published_filters(
 
 def validate_search(search: str | None) -> str | None:
     try:
-        from app._db_helpers import fts_query
+        from app._db_helpers import parse_search_terms
 
-        fts_query(search)
+        parse_search_terms(search)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return search

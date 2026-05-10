@@ -85,6 +85,11 @@ browser IANA timezone in `published_timezone`. If omitted, the backend defaults
 to `America/Los_Angeles`. Undated records are excluded while either bound is
 active.
 
+Search accepts two-or-more-character terms. Terms of three or more characters
+use the SQLite trigram FTS index; exactly two-character terms use a slower
+literal substring fallback across title, author, and body text. One-character
+terms are rejected to avoid overly broad scans.
+
 `GET /api/posts` supports the same `search`, `author`, `published_from`,
 `published_to`, `published_timezone`, `limit`, and `offset` query parameters for
 post-only lists.
