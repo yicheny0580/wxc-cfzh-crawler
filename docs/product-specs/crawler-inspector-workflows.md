@@ -74,6 +74,10 @@ The reader view should preserve body content, source metadata, nested replies,
 and source-page links. It should make forum content easier to inspect locally
 without pretending to replace the original forum.
 
+Reply trees should support per-reply and bulk expand/collapse controls. The
+selected collapse state is saved per root post in browser local storage so
+reopening the same post restores the user's previous reply tree state.
+
 The reader should let the user export the selected root post as an image for
 sharing or archiving. The exported image includes the root post title, metadata,
 source link with a scannable QR code, and post body, including inline post
