@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
+import { getAuthors, getHealth, getResults, getSummary } from "./api";
 import { FilterPanel } from "./FilterPanel";
 import { HideConfirmationDialog } from "./HideConfirmationDialog";
 import { InspectorHeader } from "./InspectorHeader";
@@ -8,13 +8,6 @@ import { ResizableInspectorLayout } from "./ResizableInspectorLayout";
 import { PAGE_SIZE, ResultSidebar } from "./ResultSidebar";
 import { ReaderPane, type FocusRequest } from "./Reader";
 import { resultKey } from "./format";
-import {
-  DEFAULT_INTEREST_FILTER,
-  readNotInterestedPostIds,
-  resultsVisibleForInterest,
-  type InterestFilterPreference,
-  writeNotInterestedPostIds
-} from "./notInterestedPosts";
 import {
   DEFAULT_RESULT_TYPE_FILTER,
   readResultTypeFilterPreference,
@@ -27,10 +20,11 @@ import {
   type PublishedTimeFilter
 } from "./timeFilter";
 import { useCrawlStatus } from "./useCrawlStatus";
+import { usePostPreferences } from "./usePostPreferences";
+import { useSelectedPost } from "./useSelectedPost";
 import type {
   AuthorSummary,
   HealthResponse,
-  PostDetail,
   ResultItem,
   ResultListResponse,
   SummaryResponse
@@ -43,7 +37,6 @@ function App() {
   const [results, setResults] = useState<ResultListResponse | null>(null);
   const [selectedResultKey, setSelectedResultKey] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
-  const [selectedPost, setSelectedPost] = useState<PostDetail | null>(null);
   const [focusRequest, setFocusRequest] = useState<FocusRequest>({
     id: 0,
     postId: null,
@@ -52,11 +45,6 @@ function App() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [author, setAuthor] = useState("");
-  const [interestFilter, setInterestFilter] =
-    useState<InterestFilterPreference>(DEFAULT_INTEREST_FILTER);
-  const [notInterestedPostIds, setNotInterestedPostIds] =
-    useState<Set<string>>(readNotInterestedPostIds);
-  const [pendingHidePostId, setPendingHidePostId] = useState<string | null>(null);
   const [resultTypeFilter, setResultTypeFilter] = useState<ResultTypeFilterPreference>(
     readResultTypeFilterPreference
   );
@@ -69,25 +57,41 @@ function App() {
   const [refreshingAfterCrawl, setRefreshingAfterCrawl] = useState(false);
   const [overviewRefreshingAfterCrawl, setOverviewRefreshingAfterCrawl] = useState(false);
   const [resultsLoading, setResultsLoading] = useState(false);
-  const [detailLoading, setDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [detailError, setDetailError] = useState<string | null>(null);
   const refreshingAfterCrawlRef = useRef(false);
-  const selectedPostRef = useRef<PostDetail | null>(null);
-  selectedPostRef.current = selectedPost;
+  const {
+    clearPostPreferenceFilters,
+    confirmPendingHide,
+    favoriteFilter,
+    favoritePostIdList,
+    favoritePostIds,
+    interestFilter,
+    notInterestedPostIdList,
+    notInterestedPostIds,
+    pendingHidePostId,
+    requestNotInterestedPostState,
+    setFavoriteFilter,
+    setInterestFilter,
+    setPendingHidePostId,
+    updateFavoritePostState
+  } = usePostPreferences();
+  const { clearSelectedPost, detailError, detailLoading, selectedPost } = useSelectedPost(
+    selectedPostId,
+    reloadToken,
+    refreshingAfterCrawlRef
+  );
 
   const { includePosts, includeReplies } = resultTypeFilter;
+  const favoriteOnly = favoriteFilter === "favorites";
+  const effectiveIncludePosts = favoriteOnly ? true : includePosts;
+  const effectiveIncludeReplies = favoriteOnly ? false : includeReplies;
   const publicMode = health?.public_mode ?? false;
   const { publishedFrom, publishedTo } = publishedTimeRange(publishedTimeFilter);
-  const notInterestedPostIdList = useMemo(
-    () => Array.from(notInterestedPostIds).sort(),
-    [notInterestedPostIds]
-  );
-  const displayResults = useMemo(
-    () => resultsVisibleForInterest(results, interestFilter, notInterestedPostIds),
-    [interestFilter, notInterestedPostIds, results]
-  );
-  const hasResultScope = includePosts || includeReplies;
+  const displayResults = results;
+  const hasResultScope =
+    effectiveIncludePosts || effectiveIncludeReplies
+      ? !favoriteOnly || favoritePostIdList.length > 0
+      : false;
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
   const showResultsLoading = resultsLoading && (!results || !refreshingAfterCrawl);
@@ -142,7 +146,17 @@ function App() {
 
   useEffect(() => {
     setOffset(0);
-  }, [author, includePosts, includeReplies, interestFilter, notInterestedPostIdList, publishedFrom, publishedTo]);
+  }, [
+    author,
+    effectiveIncludePosts,
+    effectiveIncludeReplies,
+    favoriteFilter,
+    favoritePostIdList,
+    interestFilter,
+    notInterestedPostIdList,
+    publishedFrom,
+    publishedTo
+  ]);
 
   useEffect(() => {
     writeResultTypeFilterPreference(resultTypeFilter);
@@ -167,9 +181,11 @@ function App() {
       author,
       publishedFrom,
       publishedTo,
-      includePosts,
-      includeReplies,
-      excludeRootPostIds: interestFilter === "focus" ? notInterestedPostIdList : undefined,
+      includePosts: effectiveIncludePosts,
+      includeReplies: effectiveIncludeReplies,
+      includeRootPostIds: favoriteOnly ? favoritePostIdList : undefined,
+      excludeRootPostIds:
+        !favoriteOnly && interestFilter === "focus" ? notInterestedPostIdList : undefined,
       limit: PAGE_SIZE,
       offset
     })
@@ -198,9 +214,11 @@ function App() {
   }, [
     author,
     debouncedQuery,
+    effectiveIncludePosts,
+    effectiveIncludeReplies,
+    favoriteOnly,
+    favoritePostIdList,
     hasResultScope,
-    includePosts,
-    includeReplies,
     interestFilter,
     notInterestedPostIdList,
     offset,
@@ -217,7 +235,7 @@ function App() {
     if (displayResults.items.length === 0) {
       setSelectedResultKey(null);
       setSelectedPostId(null);
-      setSelectedPost(null);
+      clearSelectedPost();
       return;
     }
 
@@ -229,42 +247,7 @@ function App() {
       setSelectedResultKey(resultKey(first));
       setSelectedPostId(first.root_post_id);
     }
-  }, [displayResults, selectedResultKey]);
-
-  useEffect(() => {
-    if (!selectedPostId) {
-      return;
-    }
-
-    let active = true;
-    setDetailLoading(true);
-    setDetailError(null);
-    const preserveCurrentPost =
-      refreshingAfterCrawlRef.current && selectedPostRef.current?.post_id === selectedPostId;
-    getPost(selectedPostId)
-      .then((payload) => {
-        if (active) {
-          setSelectedPost(payload);
-        }
-      })
-      .catch((err: unknown) => {
-        if (active) {
-          setDetailError(err instanceof Error ? err.message : "Failed to load post.");
-          if (!preserveCurrentPost) {
-            setSelectedPost(null);
-          }
-        }
-      })
-      .finally(() => {
-        if (active) {
-          setDetailLoading(false);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
-  }, [selectedPostId, reloadToken]);
+  }, [clearSelectedPost, displayResults, selectedResultKey]);
 
   const selectResult = (result: ResultItem) => {
     const replyId = result.record_type === "reply" ? result.reply_id : null;
@@ -283,43 +266,9 @@ function App() {
     );
   };
 
-  const applyNotInterestedPostState = (postId: string, hidden: boolean) => {
-    setNotInterestedPostIds((current) => {
-      const next = new Set(current);
-      if (hidden) {
-        next.add(postId);
-      } else {
-        next.delete(postId);
-      }
-      if (next.size === current.size && next.has(postId) === current.has(postId)) {
-        return current;
-      }
-      writeNotInterestedPostIds(next);
-      return next;
-    });
-  };
-
-  const requestNotInterestedPostState = (postId: string, hidden: boolean) => {
-    if (hidden && !notInterestedPostIds.has(postId)) {
-      setPendingHidePostId(postId);
-      return;
-    }
-
-    applyNotInterestedPostState(postId, hidden);
-  };
-
-  const confirmPendingHide = () => {
-    if (!pendingHidePostId) {
-      return;
-    }
-
-    applyNotInterestedPostState(pendingHidePostId, true);
-    setPendingHidePostId(null);
-  };
-
   const clearFilters = () => {
     setAuthor("");
-    setInterestFilter(DEFAULT_INTEREST_FILTER);
+    clearPostPreferenceFilters();
     setResultTypeFilter(DEFAULT_RESULT_TYPE_FILTER);
     setPublishedTimeFilter(EMPTY_PUBLISHED_TIME_FILTER);
   };
@@ -373,6 +322,8 @@ function App() {
         onResultTypeFilterChange={updateResultTypeFilter}
         interestFilter={interestFilter}
         onInterestFilterChange={setInterestFilter}
+        favoriteFilter={favoriteFilter}
+        onFavoriteFilterChange={setFavoriteFilter}
         publishedTimeFilter={publishedTimeFilter}
         onPublishedTimeFilterChange={setPublishedTimeFilter}
         onClearFilters={clearFilters}
@@ -389,9 +340,11 @@ function App() {
             canGoBack={canGoBack}
             canGoForward={canGoForward}
             notInterestedPostIds={notInterestedPostIds}
+            favoritePostIds={favoritePostIds}
             onQueryChange={setQuery}
             onSelect={selectResult}
             onNotInterestedChange={requestNotInterestedPostState}
+            onFavoriteChange={updateFavoritePostState}
             onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             onNext={() => setOffset(offset + PAGE_SIZE)}
           />
@@ -406,7 +359,9 @@ function App() {
               error={detailError}
               empty={!selectedPostId && !resultsLoading}
               notInterested={selectedPost ? notInterestedPostIds.has(selectedPost.post_id) : false}
+              favorite={selectedPost ? favoritePostIds.has(selectedPost.post_id) : false}
               onNotInterestedChange={requestNotInterestedPostState}
+              onFavoriteChange={updateFavoritePostState}
             />
           </section>
         }

@@ -79,12 +79,13 @@ otherwise successful refresh look failed.
 
 `GET /api/results` is the primary inspector list endpoint. It supports `search`,
 `author`, `published_from`, `published_to`, `published_timezone`,
-`include_posts`, `include_replies`, repeated `exclude_root_post_id`, `limit`,
-and `offset`. Reply results include root post metadata so the frontend can open
-the original post and focus the matching reply in context. The root-post ID
-filter exists for the frontend's localStorage-backed not-interested workflow: it
-does not persist anything server-side, but it lets the read-only API paginate
-accurately in Focus mode after the browser applies local thread preferences.
+`include_posts`, `include_replies`, repeated `include_root_post_id`, repeated
+`exclude_root_post_id`, `limit`, and `offset`. Reply results include root post
+metadata so the frontend can open the original post and focus the matching
+reply in context. The root-post ID filters exist for the frontend's
+localStorage-backed post preference workflows: they do not persist anything
+server-side, but they let the read-only API own result membership, pagination,
+and totals after the browser sends local preference IDs as query parameters.
 `published_from` and `published_to` are inclusive `YYYY-MM-DD` filters over
 browser-local published dates; the frontend sends the browser IANA timezone in
 `published_timezone`. If omitted, the backend defaults to `America/Los_Angeles`.
@@ -113,8 +114,16 @@ Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`
 Not-interested post marks are browser-local UI preferences saved in
 localStorage. The inspector treats the root post as the unit of interest, so a
 marked root post and reply hits from that root post are hidden in the default
-Focus view. Users can switch the interest filter to Show all to review and undo
-hidden threads.
+Focus view through `/api/results` `exclude_root_post_id` filters. Users can
+switch the interest filter to Show all to review and undo hidden threads.
+
+Favorite post marks are browser-local UI preferences saved in localStorage.
+Favorites apply only to root post rows, not individual replies. The favorite
+filter sends `/api/results` matching `include_root_post_id` filters with reply
+results disabled, so Favorite view totals and rows come from the backend and
+contain only root posts that still match the other active filters. Favoriting a
+post clears a not-interested mark for the same post, and hiding a post clears
+any favorite mark for that post.
 
 Browser-facing `db_path` values are display labels, not filesystem access
 contracts. Local repo databases are shown relative to the repository root, such

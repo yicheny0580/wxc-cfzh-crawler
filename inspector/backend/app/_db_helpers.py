@@ -120,9 +120,15 @@ def add_root_post_id_filters(
     params: list[object],
     alias: str,
     *,
+    include_root_post_ids: list[str] | None,
     exclude_root_post_ids: list[str] | None,
 ) -> None:
     root_column = f"{alias}.post_id" if alias == "p" else f"{alias}.root_post_id"
+
+    included_ids = normalized_id_filter(include_root_post_ids)
+    if included_ids:
+        clauses.append(f"{root_column} IN ({placeholders(included_ids)})")
+        params.extend(included_ids)
 
     excluded_ids = normalized_id_filter(exclude_root_post_ids)
     if excluded_ids:
@@ -173,6 +179,7 @@ def record_filters(
     author: str | None,
     published_from: str | None = None,
     published_before: str | None = None,
+    include_root_post_ids: list[str] | None = None,
     exclude_root_post_ids: list[str] | None = None,
 ) -> tuple[str, list[object]]:
     clauses: list[str] = []
@@ -212,6 +219,7 @@ def record_filters(
         clauses,
         params,
         alias,
+        include_root_post_ids=include_root_post_ids,
         exclude_root_post_ids=exclude_root_post_ids,
     )
 

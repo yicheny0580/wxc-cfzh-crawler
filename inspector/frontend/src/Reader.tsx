@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Eye, EyeOff, Star } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BodyContent, type ReaderImage } from "./BodyContent";
@@ -43,7 +43,9 @@ export function ReaderPane({
   error,
   empty,
   notInterested,
-  onNotInterestedChange
+  favorite,
+  onNotInterestedChange,
+  onFavoriteChange
 }: {
   post: PostDetail | null;
   focusRequest: FocusRequest;
@@ -52,7 +54,9 @@ export function ReaderPane({
   error: string | null;
   empty: boolean;
   notInterested: boolean;
+  favorite: boolean;
   onNotInterestedChange: (postId: string, hidden: boolean) => void;
+  onFavoriteChange: (postId: string, favorite: boolean) => void;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const handledFocusRequestIdRef = useRef(0);
@@ -182,6 +186,20 @@ export function ReaderPane({
             <MetaLine post={post} />
           </div>
           <div className="flex shrink-0 flex-wrap items-start gap-2 xl:justify-end">
+            <button
+              type="button"
+              aria-pressed={favorite}
+              onClick={() => onFavoriteChange(post.post_id, !favorite)}
+              className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+                favorite
+                  ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+                  : "border-stone-300 bg-[#fffdf8] text-stone-800 hover:bg-stone-50"
+              }`}
+              title={favorite ? "Remove favorite" : "Add favorite"}
+            >
+              <Star className={`h-4 w-4 ${favorite ? "fill-current" : ""}`} />
+              {favorite ? "Favorited" : "Favorite"}
+            </button>
             <button
               type="button"
               aria-pressed={notInterested}

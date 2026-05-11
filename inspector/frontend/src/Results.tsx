@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 
 import { StateBlock } from "./StateBlock";
 import { displayResultTitle, formatDate, formatNumber, resultKey } from "./format";
@@ -12,7 +12,9 @@ export function ResultList({
   refreshing = false,
   selectedResultKey,
   notInterestedPostIds,
+  favoritePostIds,
   onNotInterestedChange,
+  onFavoriteChange,
   onSelect
 }: {
   results: ResultItem[];
@@ -20,7 +22,9 @@ export function ResultList({
   refreshing?: boolean;
   selectedResultKey: string | null;
   notInterestedPostIds: Set<string>;
+  favoritePostIds: Set<string>;
   onNotInterestedChange: (postId: string, hidden: boolean) => void;
+  onFavoriteChange: (postId: string, favorite: boolean) => void;
   onSelect: (result: ResultItem) => void;
 }) {
   if (loading) {
@@ -37,6 +41,7 @@ export function ResultList({
         const selected = resultKey(result) === selectedResultKey;
         const isReply = result.record_type === "reply";
         const markedNotInterested = notInterestedPostIds.has(result.root_post_id);
+        const markedFavorite = !isReply && favoritePostIds.has(result.post_id);
         return (
           <div
             key={resultKey(result)}
@@ -75,6 +80,12 @@ export function ResultList({
                 {markedNotInterested ? (
                   <span className="font-medium text-red-700">Not interested</span>
                 ) : null}
+                {markedFavorite ? (
+                  <span className="inline-flex items-center gap-1 font-medium text-amber-700">
+                    <Star className="h-3 w-3 fill-current" />
+                    Favorite
+                  </span>
+                ) : null}
               </div>
               {isReply ? (
                 <div className="mt-2 text-xs text-stone-600">
@@ -87,20 +98,38 @@ export function ResultList({
                 </p>
               ) : null}
             </button>
-            <button
-              type="button"
-              aria-label={markedNotInterested ? "Undo hide" : "Hide"}
-              aria-pressed={markedNotInterested}
-              onClick={() => onNotInterestedChange(result.root_post_id, !markedNotInterested)}
-              className={`absolute right-2 top-2 z-10 hidden h-7 items-center justify-center rounded-md border px-2 text-xs font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 sm:inline-flex sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${
-                markedNotInterested
-                  ? "border-red-200 bg-white/95 text-red-700 hover:bg-red-50"
-                  : "border-stone-300 bg-white/95 text-stone-600 hover:bg-stone-50 hover:text-stone-950"
-              }`}
-              title={markedNotInterested ? "Undo hide" : "Hide"}
-            >
-              {markedNotInterested ? "Undo" : "Hide"}
-            </button>
+            <div className="absolute right-2 top-2 z-10 hidden items-center gap-1 sm:flex sm:opacity-0 sm:transition sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+              {!isReply ? (
+                <button
+                  type="button"
+                  aria-label={markedFavorite ? "Remove favorite" : "Add favorite"}
+                  aria-pressed={markedFavorite}
+                  onClick={() => onFavoriteChange(result.post_id, !markedFavorite)}
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-md border shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+                    markedFavorite
+                      ? "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"
+                      : "border-stone-300 bg-white/95 text-stone-600 hover:bg-stone-50 hover:text-stone-950"
+                  }`}
+                  title={markedFavorite ? "Remove favorite" : "Add favorite"}
+                >
+                  <Star className={`h-4 w-4 ${markedFavorite ? "fill-current" : ""}`} />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                aria-label={markedNotInterested ? "Undo hide" : "Hide"}
+                aria-pressed={markedNotInterested}
+                onClick={() => onNotInterestedChange(result.root_post_id, !markedNotInterested)}
+                className={`inline-flex h-7 items-center justify-center rounded-md border px-2 text-xs font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+                  markedNotInterested
+                    ? "border-red-200 bg-white/95 text-red-700 hover:bg-red-50"
+                    : "border-stone-300 bg-white/95 text-stone-600 hover:bg-stone-50 hover:text-stone-950"
+                }`}
+                title={markedNotInterested ? "Undo hide" : "Hide"}
+              >
+                {markedNotInterested ? "Undo" : "Hide"}
+              </button>
+            </div>
           </div>
         );
       })}

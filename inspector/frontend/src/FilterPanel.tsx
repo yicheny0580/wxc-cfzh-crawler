@@ -1,7 +1,11 @@
 import { RotateCcw, X } from "lucide-react";
 import { useMemo } from "react";
 
-import { AuthorFilter, InterestFilterControl, TypeFilter } from "./Filters";
+import { AuthorFilter, FavoriteFilterControl, InterestFilterControl, TypeFilter } from "./Filters";
+import {
+  DEFAULT_FAVORITE_FILTER,
+  type FavoriteFilterPreference
+} from "./favoritePosts";
 import {
   DEFAULT_INTEREST_FILTER,
   type InterestFilterPreference
@@ -29,6 +33,8 @@ interface FilterPanelProps {
   onResultTypeFilterChange: (value: ResultTypeFilterPreference) => void;
   interestFilter: InterestFilterPreference;
   onInterestFilterChange: (value: InterestFilterPreference) => void;
+  favoriteFilter: FavoriteFilterPreference;
+  onFavoriteFilterChange: (value: FavoriteFilterPreference) => void;
   publishedTimeFilter: PublishedTimeFilter;
   onPublishedTimeFilterChange: (value: PublishedTimeFilter) => void;
   onClearFilters: () => void;
@@ -48,11 +54,14 @@ export function FilterPanel({
   onResultTypeFilterChange,
   interestFilter,
   onInterestFilterChange,
+  favoriteFilter,
+  onFavoriteFilterChange,
   publishedTimeFilter,
   onPublishedTimeFilterChange,
   onClearFilters
 }: FilterPanelProps) {
   const invalidTimeRange = hasInvalidPublishedTimeRange(publishedTimeFilter);
+  const favoriteOnly = favoriteFilter === "favorites";
   const chips = useMemo<FilterChip[]>(() => {
     const nextChips: FilterChip[] = [];
     const timeLabel = publishedTimeFilterLabel(publishedTimeFilter);
@@ -65,7 +74,7 @@ export function FilterPanel({
       });
     }
 
-    if (!resultTypeFiltersMatch(resultTypeFilter, DEFAULT_RESULT_TYPE_FILTER)) {
+    if (!favoriteOnly && !resultTypeFiltersMatch(resultTypeFilter, DEFAULT_RESULT_TYPE_FILTER)) {
       nextChips.push({
         key: "type",
         label: resultTypeLabel(resultTypeFilter),
@@ -81,6 +90,14 @@ export function FilterPanel({
       });
     }
 
+    if (favoriteFilter !== DEFAULT_FAVORITE_FILTER) {
+      nextChips.push({
+        key: "favorites",
+        label: "Favorites",
+        onRemove: () => onFavoriteFilterChange(DEFAULT_FAVORITE_FILTER)
+      });
+    }
+
     if (timeLabel) {
       nextChips.push({
         key: "time",
@@ -93,6 +110,9 @@ export function FilterPanel({
   }, [
     author,
     onAuthorChange,
+    favoriteFilter,
+    favoriteOnly,
+    onFavoriteFilterChange,
     interestFilter,
     onInterestFilterChange,
     onPublishedTimeFilterChange,
@@ -117,8 +137,9 @@ export function FilterPanel({
               <AuthorFilter authors={authors} value={author} onChange={onAuthorChange} />
             </div>
             <TypeFilter
-              includePosts={resultTypeFilter.includePosts}
-              includeReplies={resultTypeFilter.includeReplies}
+              includePosts={favoriteOnly ? true : resultTypeFilter.includePosts}
+              includeReplies={favoriteOnly ? false : resultTypeFilter.includeReplies}
+              disabled={favoriteOnly}
               showLabel={false}
               onIncludePostsChange={(checked) =>
                 updateResultType({ ...resultTypeFilter, includePosts: checked })
@@ -128,6 +149,7 @@ export function FilterPanel({
               }
             />
             <InterestFilterControl value={interestFilter} onChange={onInterestFilterChange} />
+            <FavoriteFilterControl value={favoriteFilter} onChange={onFavoriteFilterChange} />
             <div className="min-w-0 flex-1 basis-[360px]">
               <PublishedTimeControl
                 value={publishedTimeFilter}

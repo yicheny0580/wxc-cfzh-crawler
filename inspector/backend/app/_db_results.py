@@ -74,6 +74,7 @@ def fetch_results(
     published_before: str | None,
     include_posts: bool,
     include_replies: bool,
+    include_root_post_ids: list[str] | None,
     exclude_root_post_ids: list[str] | None,
     limit: int,
     offset: int,
@@ -88,6 +89,7 @@ def fetch_results(
             author=author,
             published_from=published_from,
             published_before=published_before,
+            include_root_post_ids=include_root_post_ids,
             exclude_root_post_ids=exclude_root_post_ids,
         )
         selects.append(
@@ -134,6 +136,7 @@ def fetch_results(
             author=author,
             published_from=published_from,
             published_before=published_before,
+            include_root_post_ids=include_root_post_ids,
             exclude_root_post_ids=exclude_root_post_ids,
         )
         selects.append(

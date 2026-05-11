@@ -1,16 +1,16 @@
-export type InterestFilterPreference = "focus" | "show-all";
+export type FavoriteFilterPreference = "all" | "favorites";
 
-const NOT_INTERESTED_POSTS_STORAGE_KEY = "cfzh-inspector.not-interested-post-ids.v1";
+const FAVORITE_POSTS_STORAGE_KEY = "cfzh-inspector.favorite-post-ids.v1";
 
-export const DEFAULT_INTEREST_FILTER: InterestFilterPreference = "focus";
+export const DEFAULT_FAVORITE_FILTER: FavoriteFilterPreference = "all";
 
-export function readNotInterestedPostIds(): Set<string> {
+export function readFavoritePostIds(): Set<string> {
   if (typeof window === "undefined") {
     return new Set();
   }
 
   try {
-    const storedPostIds = window.localStorage.getItem(NOT_INTERESTED_POSTS_STORAGE_KEY);
+    const storedPostIds = window.localStorage.getItem(FAVORITE_POSTS_STORAGE_KEY);
     if (!storedPostIds) {
       return new Set();
     }
@@ -30,18 +30,18 @@ export function readNotInterestedPostIds(): Set<string> {
   }
 }
 
-export function writeNotInterestedPostIds(postIds: Set<string>) {
+export function writeFavoritePostIds(postIds: Set<string>) {
   if (typeof window === "undefined") {
     return;
   }
 
   try {
     if (postIds.size === 0) {
-      window.localStorage.removeItem(NOT_INTERESTED_POSTS_STORAGE_KEY);
+      window.localStorage.removeItem(FAVORITE_POSTS_STORAGE_KEY);
       return;
     }
     window.localStorage.setItem(
-      NOT_INTERESTED_POSTS_STORAGE_KEY,
+      FAVORITE_POSTS_STORAGE_KEY,
       JSON.stringify(Array.from(postIds).sort())
     );
   } catch {

@@ -12,9 +12,11 @@ export function ResultSidebar({
   canGoBack,
   canGoForward,
   notInterestedPostIds,
+  favoritePostIds,
   onQueryChange,
   onSelect,
   onNotInterestedChange,
+  onFavoriteChange,
   onPrevious,
   onNext
 }: {
@@ -26,9 +28,11 @@ export function ResultSidebar({
   canGoBack: boolean;
   canGoForward: boolean;
   notInterestedPostIds: Set<string>;
+  favoritePostIds: Set<string>;
   onQueryChange: (query: string) => void;
   onSelect: (result: ResultItem) => void;
   onNotInterestedChange: (postId: string, hidden: boolean) => void;
+  onFavoriteChange: (postId: string, favorite: boolean) => void;
   onPrevious: () => void;
   onNext: () => void;
 }) {
@@ -61,8 +65,10 @@ export function ResultSidebar({
         refreshing={refreshing}
         selectedResultKey={selectedResultKey}
         notInterestedPostIds={notInterestedPostIds}
+        favoritePostIds={favoritePostIds}
         onSelect={onSelect}
         onNotInterestedChange={onNotInterestedChange}
+        onFavoriteChange={onFavoriteChange}
       />
       <Pagination
         results={results}

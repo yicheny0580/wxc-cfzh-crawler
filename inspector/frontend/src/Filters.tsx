@@ -1,7 +1,8 @@
-import { Check, Search, X } from "lucide-react";
+import { Check, Search, Star, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { authorLabel, formatNumber } from "./format";
+import type { FavoriteFilterPreference } from "./favoritePosts";
 import type { InterestFilterPreference } from "./notInterestedPosts";
 import type { AuthorSummary } from "./types";
 
@@ -145,12 +146,14 @@ export function AuthorFilter({
 export function TypeFilter({
   includePosts,
   includeReplies,
+  disabled = false,
   showLabel = true,
   onIncludePostsChange,
   onIncludeRepliesChange
 }: {
   includePosts: boolean;
   includeReplies: boolean;
+  disabled?: boolean;
   showLabel?: boolean;
   onIncludePostsChange: (checked: boolean) => void;
   onIncludeRepliesChange: (checked: boolean) => void;
@@ -161,10 +164,16 @@ export function TypeFilter({
       {showLabel ? (
         <span className="ml-1 mr-1 text-xs font-medium uppercase text-stone-500">Type</span>
       ) : null}
-      <TypeFilterOption label="Posts" checked={includePosts} onChange={onIncludePostsChange} />
+      <TypeFilterOption
+        label="Posts"
+        checked={includePosts}
+        disabled={disabled}
+        onChange={onIncludePostsChange}
+      />
       <TypeFilterOption
         label="Replies"
         checked={includeReplies}
+        disabled={disabled}
         onChange={onIncludeRepliesChange}
       />
     </fieldset>
@@ -199,29 +208,77 @@ export function InterestFilterControl({
   );
 }
 
+export function FavoriteFilterControl({
+  value,
+  onChange
+}: {
+  value: FavoriteFilterPreference;
+  onChange: (value: FavoriteFilterPreference) => void;
+}) {
+  return (
+    <fieldset className="inline-flex h-9 items-center gap-1 rounded-md border border-stone-300 bg-white p-1">
+      <legend className="sr-only">Favorite filter</legend>
+      {FAVORITE_FILTER_OPTIONS.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            onClick={() => onChange(option.value)}
+            className={`inline-flex h-7 items-center gap-1.5 rounded px-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+              selected
+                ? "bg-emerald-700 font-medium text-white"
+                : "text-stone-700 hover:bg-stone-100 hover:text-stone-950"
+            }`}
+          >
+            {option.value === "favorites" ? (
+              <Star className={`h-3.5 w-3.5 ${selected ? "fill-current" : ""}`} />
+            ) : null}
+            {option.label}
+          </button>
+        );
+      })}
+    </fieldset>
+  );
+}
+
 const INTEREST_FILTER_OPTIONS: { value: InterestFilterPreference; label: string }[] = [
   { value: "focus", label: "Focus" },
   { value: "show-all", label: "Show all" }
 ];
 
+const FAVORITE_FILTER_OPTIONS: { value: FavoriteFilterPreference; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "favorites", label: "Favorites" }
+];
+
 function TypeFilterOption({
   label,
   checked,
+  disabled = false,
   onChange
 }: {
   label: string;
   checked: boolean;
+  disabled?: boolean;
   onChange: (checked: boolean) => void;
 }) {
   return (
     <label
-      className={`flex h-7 cursor-pointer items-center gap-1.5 rounded px-2 text-sm transition ${
-        checked ? "bg-emerald-700 text-white" : "text-stone-700 hover:bg-stone-100"
+      className={`flex h-7 items-center gap-1.5 rounded px-2 text-sm transition ${
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+      } ${
+        checked
+          ? "bg-emerald-700 text-white"
+          : disabled
+            ? "text-stone-700"
+            : "text-stone-700 hover:bg-stone-100"
       }`}
     >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
         className="sr-only"
       />
