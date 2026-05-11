@@ -1,15 +1,19 @@
-import { Search, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
-import { CrawlControls } from "./CrawlControls";
 import { FilterPanel } from "./FilterPanel";
-import { PublicRefreshButton } from "./PublicRefreshButton";
+import { InspectorHeader } from "./InspectorHeader";
 import { ResizableInspectorLayout } from "./ResizableInspectorLayout";
-import { PAGE_SIZE, Pagination, ResultList } from "./Results";
+import { PAGE_SIZE, ResultSidebar } from "./ResultSidebar";
 import { ReaderPane, type FocusRequest } from "./Reader";
-import { ErrorBanner, SummaryStrip } from "./Summary";
 import { resultKey } from "./format";
+import {
+  DEFAULT_INTEREST_FILTER,
+  readNotInterestedPostIds,
+  resultsVisibleForInterest,
+  type InterestFilterPreference,
+  writeNotInterestedPostIds
+} from "./notInterestedPosts";
 import {
   DEFAULT_RESULT_TYPE_FILTER,
   readResultTypeFilterPreference,
@@ -47,6 +51,10 @@ function App() {
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [author, setAuthor] = useState("");
+  const [interestFilter, setInterestFilter] =
+    useState<InterestFilterPreference>(DEFAULT_INTEREST_FILTER);
+  const [notInterestedPostIds, setNotInterestedPostIds] =
+    useState<Set<string>>(readNotInterestedPostIds);
   const [resultTypeFilter, setResultTypeFilter] = useState<ResultTypeFilterPreference>(
     readResultTypeFilterPreference
   );
@@ -69,6 +77,14 @@ function App() {
   const { includePosts, includeReplies } = resultTypeFilter;
   const publicMode = health?.public_mode ?? false;
   const { publishedFrom, publishedTo } = publishedTimeRange(publishedTimeFilter);
+  const notInterestedPostIdList = useMemo(
+    () => Array.from(notInterestedPostIds).sort(),
+    [notInterestedPostIds]
+  );
+  const displayResults = useMemo(
+    () => resultsVisibleForInterest(results, interestFilter, notInterestedPostIds),
+    [interestFilter, notInterestedPostIds, results]
+  );
   const hasResultScope = includePosts || includeReplies;
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
@@ -124,7 +140,7 @@ function App() {
 
   useEffect(() => {
     setOffset(0);
-  }, [author, includePosts, includeReplies, publishedFrom, publishedTo]);
+  }, [author, includePosts, includeReplies, interestFilter, notInterestedPostIdList, publishedFrom, publishedTo]);
 
   useEffect(() => {
     writeResultTypeFilterPreference(resultTypeFilter);
@@ -151,6 +167,7 @@ function App() {
       publishedTo,
       includePosts,
       includeReplies,
+      excludeRootPostIds: interestFilter === "focus" ? notInterestedPostIdList : undefined,
       limit: PAGE_SIZE,
       offset
     })
@@ -182,6 +199,8 @@ function App() {
     hasResultScope,
     includePosts,
     includeReplies,
+    interestFilter,
+    notInterestedPostIdList,
     offset,
     publishedFrom,
     publishedTo,
@@ -189,23 +208,26 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!results) {
+    if (!displayResults) {
       return;
     }
 
-    if (results.items.length === 0) {
+    if (displayResults.items.length === 0) {
       setSelectedResultKey(null);
       setSelectedPostId(null);
       setSelectedPost(null);
       return;
     }
 
-    if (!selectedResultKey || !results.items.some((item) => resultKey(item) === selectedResultKey)) {
-      const first = results.items[0];
+    if (
+      !selectedResultKey ||
+      !displayResults.items.some((item) => resultKey(item) === selectedResultKey)
+    ) {
+      const first = displayResults.items[0];
       setSelectedResultKey(resultKey(first));
       setSelectedPostId(first.root_post_id);
     }
-  }, [results, selectedResultKey]);
+  }, [displayResults, selectedResultKey]);
 
   useEffect(() => {
     if (!selectedPostId) {
@@ -259,8 +281,22 @@ function App() {
     );
   };
 
+  const toggleNotInterestedPost = (postId: string) => {
+    setNotInterestedPostIds((current) => {
+      const next = new Set(current);
+      if (next.has(postId)) {
+        next.delete(postId);
+      } else {
+        next.add(postId);
+      }
+      writeNotInterestedPostIds(next);
+      return next;
+    });
+  };
+
   const clearFilters = () => {
     setAuthor("");
+    setInterestFilter(DEFAULT_INTEREST_FILTER);
     setResultTypeFilter(DEFAULT_RESULT_TYPE_FILTER);
     setPublishedTimeFilter(EMPTY_PUBLISHED_TIME_FILTER);
   };
@@ -291,38 +327,20 @@ function App() {
 
   return (
     <div className="min-h-screen bg-[#f6f3ed] text-stone-900">
-      <header className="shrink-0 border-b border-stone-300 bg-[#fbfaf7]">
-        <div className="mx-auto flex max-w-[1800px] flex-col gap-2 px-3 py-3 sm:px-4 lg:px-6">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-col gap-2 lg:flex-row lg:items-center">
-                <h1 className="text-xl font-semibold text-stone-950">CFZH Inspector</h1>
-                <SummaryStrip summary={summary} loading={bootLoading} />
-              </div>
-              <p className="mt-1 max-w-full truncate text-sm text-stone-600">
-                {health?.db_path || summary?.db_path || "SQLite database"}
-              </p>
-            </div>
-            {health ? (
-              publicMode ? (
-                <PublicRefreshButton
-                  loading={refreshingAfterCrawl}
-                  onRefresh={refreshAfterCrawl}
-                />
-              ) : (
-                <CrawlControls
-                  status={crawlStatus}
-                  error={crawlError}
-                  actionLoading={crawlActionLoading}
-                  onStart={handleStartCrawl}
-                  onStop={handleStopCrawl}
-                />
-              )
-            ) : null}
-          </div>
-          {error ? <ErrorBanner message={error} /> : null}
-        </div>
-      </header>
+      <InspectorHeader
+        health={health}
+        summary={summary}
+        bootLoading={bootLoading}
+        publicMode={publicMode}
+        refreshingAfterCrawl={refreshingAfterCrawl}
+        crawlStatus={crawlStatus}
+        crawlError={crawlError}
+        crawlActionLoading={crawlActionLoading}
+        error={error}
+        onRefresh={refreshAfterCrawl}
+        onStartCrawl={handleStartCrawl}
+        onStopCrawl={handleStopCrawl}
+      />
 
       <FilterPanel
         authors={authors}
@@ -330,6 +348,8 @@ function App() {
         onAuthorChange={setAuthor}
         resultTypeFilter={resultTypeFilter}
         onResultTypeFilterChange={updateResultTypeFilter}
+        interestFilter={interestFilter}
+        onInterestFilterChange={setInterestFilter}
         publishedTimeFilter={publishedTimeFilter}
         onPublishedTimeFilterChange={setPublishedTimeFilter}
         onClearFilters={clearFilters}
@@ -337,43 +357,21 @@ function App() {
 
       <ResizableInspectorLayout
         resultsPane={
-          <aside className="flex min-h-[360px] flex-col overflow-hidden border border-stone-300 bg-[#fbfaf7] lg:sticky lg:top-3 lg:h-[calc(100vh-1.5rem)] lg:min-h-0">
-            <div className="shrink-0 border-b border-stone-300 p-2">
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search posts and replies"
-                  className="h-9 w-full rounded-md border border-stone-300 bg-white pl-9 pr-9 text-sm text-stone-900 outline-none transition placeholder:text-stone-500 focus:border-emerald-600 focus:ring-2 focus:ring-emerald-200"
-                />
-                {query ? (
-                  <button
-                    type="button"
-                    onClick={() => setQuery("")}
-                    className="absolute right-2 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-stone-500 hover:bg-stone-100 hover:text-stone-900"
-                    title="Clear search"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <ResultList
-              results={results?.items ?? []}
-              loading={showResultsLoading}
-              refreshing={refreshingAfterCrawl && resultsLoading && Boolean(results)}
-              selectedResultKey={selectedResultKey}
-              onSelect={selectResult}
-            />
-            <Pagination
-              results={results}
-              canGoBack={canGoBack}
-              canGoForward={canGoForward}
-              onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-              onNext={() => setOffset(offset + PAGE_SIZE)}
-            />
-          </aside>
+          <ResultSidebar
+            query={query}
+            results={displayResults}
+            loading={showResultsLoading}
+            refreshing={refreshingAfterCrawl && resultsLoading && Boolean(results)}
+            selectedResultKey={selectedResultKey}
+            canGoBack={canGoBack}
+            canGoForward={canGoForward}
+            notInterestedPostIds={notInterestedPostIds}
+            onQueryChange={setQuery}
+            onSelect={selectResult}
+            onToggleNotInterested={toggleNotInterestedPost}
+            onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+            onNext={() => setOffset(offset + PAGE_SIZE)}
+          />
         }
         readerPane={
           <section className="min-w-0 border border-stone-300 bg-[#fbfaf7]">
@@ -384,6 +382,8 @@ function App() {
               refreshing={refreshingAfterCrawl && detailLoading && Boolean(selectedPost)}
               error={detailError}
               empty={!selectedPostId && !resultsLoading}
+              notInterested={selectedPost ? notInterestedPostIds.has(selectedPost.post_id) : false}
+              onToggleNotInterested={toggleNotInterestedPost}
             />
           </section>
         }

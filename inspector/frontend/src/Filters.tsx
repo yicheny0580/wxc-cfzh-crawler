@@ -2,6 +2,7 @@ import { Check, Search, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { authorLabel, formatNumber } from "./format";
+import type { InterestFilterPreference } from "./notInterestedPosts";
 import type { AuthorSummary } from "./types";
 
 export function AuthorFilter({
@@ -169,6 +170,39 @@ export function TypeFilter({
     </fieldset>
   );
 }
+
+export function InterestFilterControl({
+  value,
+  onChange
+}: {
+  value: InterestFilterPreference;
+  onChange: (value: InterestFilterPreference) => void;
+}) {
+  return (
+    <fieldset className="inline-flex h-9 items-center gap-1 rounded-md border border-stone-300 bg-white p-1">
+      <legend className="sr-only">Interest filter</legend>
+      {INTEREST_FILTER_OPTIONS.map((option) => (
+        <button
+          key={option.value}
+          type="button"
+          onClick={() => onChange(option.value)}
+          className={`h-7 rounded px-2.5 text-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+            value === option.value
+              ? "bg-emerald-700 font-medium text-white"
+              : "text-stone-700 hover:bg-stone-100 hover:text-stone-950"
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </fieldset>
+  );
+}
+
+const INTEREST_FILTER_OPTIONS: { value: InterestFilterPreference; label: string }[] = [
+  { value: "focus", label: "Focus" },
+  { value: "show-all", label: "Show all" }
+];
 
 function TypeFilterOption({
   label,

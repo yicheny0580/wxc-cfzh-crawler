@@ -115,6 +115,21 @@ def add_published_date_filters(
         params.append(published_before)
 
 
+def add_root_post_id_filters(
+    clauses: list[str],
+    params: list[object],
+    alias: str,
+    *,
+    exclude_root_post_ids: list[str] | None,
+) -> None:
+    root_column = f"{alias}.post_id" if alias == "p" else f"{alias}.root_post_id"
+
+    excluded_ids = normalized_id_filter(exclude_root_post_ids)
+    if excluded_ids:
+        clauses.append(f"{root_column} NOT IN ({placeholders(excluded_ids)})")
+        params.extend(excluded_ids)
+
+
 def post_filters(
     search: str | None,
     author: str | None,
@@ -158,6 +173,7 @@ def record_filters(
     author: str | None,
     published_from: str | None = None,
     published_before: str | None = None,
+    exclude_root_post_ids: list[str] | None = None,
 ) -> tuple[str, list[object]]:
     clauses: list[str] = []
     params: list[object] = []
@@ -192,7 +208,23 @@ def record_filters(
         published_from=published_from,
         published_before=published_before,
     )
+    add_root_post_id_filters(
+        clauses,
+        params,
+        alias,
+        exclude_root_post_ids=exclude_root_post_ids,
+    )
 
     if not clauses:
         return "", params
     return "WHERE " + " AND ".join(clauses), params
+
+
+def normalized_id_filter(values: list[str] | None) -> list[str]:
+    if not values:
+        return []
+    return [value.strip() for value in values if value.strip()]
+
+
+def placeholders(values: list[str]) -> str:
+    return ", ".join("?" for _ in values)

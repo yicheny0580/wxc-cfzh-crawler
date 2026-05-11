@@ -724,6 +724,22 @@ async def test_results_include_posts_and_replies_with_root_metadata(
 
 
 @pytest.mark.anyio
+async def test_results_exclude_root_post_ids(client: httpx.AsyncClient) -> None:
+    response = await client.get(
+        "/api/results",
+        params=[("exclude_root_post_id", "100")],
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert result_ids(payload["items"]) == [
+        ("reply", "201"),
+        ("post", "200"),
+    ]
+
+
+@pytest.mark.anyio
 async def test_published_date_filter_uses_requested_timezone(
     client: httpx.AsyncClient,
     db_path: Path,

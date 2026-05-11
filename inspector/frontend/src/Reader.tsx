@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Eye, EyeOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { BodyContent, type ReaderImage } from "./BodyContent";
@@ -41,7 +41,9 @@ export function ReaderPane({
   loading,
   refreshing = false,
   error,
-  empty
+  empty,
+  notInterested,
+  onToggleNotInterested
 }: {
   post: PostDetail | null;
   focusRequest: FocusRequest;
@@ -49,6 +51,8 @@ export function ReaderPane({
   refreshing?: boolean;
   error: string | null;
   empty: boolean;
+  notInterested: boolean;
+  onToggleNotInterested: (postId: string) => void;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const handledFocusRequestIdRef = useRef(0);
@@ -178,6 +182,20 @@ export function ReaderPane({
             <MetaLine post={post} />
           </div>
           <div className="flex shrink-0 flex-wrap items-start gap-2 xl:justify-end">
+            <button
+              type="button"
+              aria-pressed={notInterested}
+              onClick={() => onToggleNotInterested(post.post_id)}
+              className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
+                notInterested
+                  ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100"
+                  : "border-stone-300 bg-[#fffdf8] text-stone-800 hover:bg-stone-50"
+              }`}
+              title={notInterested ? "Undo hide" : "Hide"}
+            >
+              {notInterested ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              {notInterested ? "Undo hide" : "Hide"}
+            </button>
             <PostImageExport post={post} />
             <a
               href={post.url}

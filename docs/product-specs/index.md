@@ -9,7 +9,7 @@ help users do.
 - [product-principles.md](product-principles.md): target users, product purpose,
   UX principles, and non-goals.
 - [crawler-inspector-workflows.md](crawler-inspector-workflows.md): supported
-  crawl, export, inspect, search, reader, and refresh workflows.
+  crawl, export, inspect, search, filtering, reader, and refresh workflows.
 
 ## Related Docs
 

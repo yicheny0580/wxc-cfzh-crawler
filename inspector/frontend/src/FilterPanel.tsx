@@ -1,7 +1,11 @@
-import { RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { RotateCcw, X } from "lucide-react";
 import { useMemo } from "react";
 
-import { AuthorFilter, TypeFilter } from "./Filters";
+import { AuthorFilter, InterestFilterControl, TypeFilter } from "./Filters";
+import {
+  DEFAULT_INTEREST_FILTER,
+  type InterestFilterPreference
+} from "./notInterestedPosts";
 import {
   DEFAULT_RESULT_TYPE_FILTER,
   resultTypeFiltersMatch,
@@ -23,6 +27,8 @@ interface FilterPanelProps {
   onAuthorChange: (value: string) => void;
   resultTypeFilter: ResultTypeFilterPreference;
   onResultTypeFilterChange: (value: ResultTypeFilterPreference) => void;
+  interestFilter: InterestFilterPreference;
+  onInterestFilterChange: (value: InterestFilterPreference) => void;
   publishedTimeFilter: PublishedTimeFilter;
   onPublishedTimeFilterChange: (value: PublishedTimeFilter) => void;
   onClearFilters: () => void;
@@ -40,6 +46,8 @@ export function FilterPanel({
   onAuthorChange,
   resultTypeFilter,
   onResultTypeFilterChange,
+  interestFilter,
+  onInterestFilterChange,
   publishedTimeFilter,
   onPublishedTimeFilterChange,
   onClearFilters
@@ -65,6 +73,14 @@ export function FilterPanel({
       });
     }
 
+    if (interestFilter !== DEFAULT_INTEREST_FILTER) {
+      nextChips.push({
+        key: "interest",
+        label: `View: ${interestFilterLabel(interestFilter)}`,
+        onRemove: () => onInterestFilterChange(DEFAULT_INTEREST_FILTER)
+      });
+    }
+
     if (timeLabel) {
       nextChips.push({
         key: "time",
@@ -77,6 +93,8 @@ export function FilterPanel({
   }, [
     author,
     onAuthorChange,
+    interestFilter,
+    onInterestFilterChange,
     onPublishedTimeFilterChange,
     onResultTypeFilterChange,
     publishedTimeFilter,
@@ -94,8 +112,10 @@ export function FilterPanel({
     <section className="shrink-0 border-b border-stone-300 bg-[#fbfaf7]" aria-label="Result filters">
       <div className="mx-auto max-w-[1800px] px-3 py-2 sm:px-4 lg:px-6">
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
-          <div className="grid min-w-0 flex-1 gap-2 md:grid-cols-[minmax(220px,320px)_auto_minmax(0,1fr)] md:items-center">
-            <AuthorFilter authors={authors} value={author} onChange={onAuthorChange} />
+          <div className="flex min-w-0 flex-1 flex-wrap items-start gap-2">
+            <div className="min-w-0 flex-1 basis-[220px] md:max-w-[320px]">
+              <AuthorFilter authors={authors} value={author} onChange={onAuthorChange} />
+            </div>
             <TypeFilter
               includePosts={resultTypeFilter.includePosts}
               includeReplies={resultTypeFilter.includeReplies}
@@ -107,11 +127,14 @@ export function FilterPanel({
                 updateResultType({ ...resultTypeFilter, includeReplies: checked })
               }
             />
-            <PublishedTimeControl
-              value={publishedTimeFilter}
-              invalid={invalidTimeRange}
-              onChange={onPublishedTimeFilterChange}
-            />
+            <InterestFilterControl value={interestFilter} onChange={onInterestFilterChange} />
+            <div className="min-w-0 flex-1 basis-[360px]">
+              <PublishedTimeControl
+                value={publishedTimeFilter}
+                invalid={invalidTimeRange}
+                onChange={onPublishedTimeFilterChange}
+              />
+            </div>
           </div>
 
           {chips.length > 0 ? (
@@ -245,4 +268,11 @@ function resultTypeLabel(filter: ResultTypeFilterPreference): string {
     return "Posts only";
   }
   return "Replies only";
+}
+
+function interestFilterLabel(filter: InterestFilterPreference): string {
+  if (filter === "show-all") {
+    return "Show all";
+  }
+  return "Focus";
 }

@@ -127,6 +127,7 @@ export interface ResultQuery {
   publishedTo?: string;
   includePosts: boolean;
   includeReplies: boolean;
+  excludeRootPostIds?: string[];
   limit: number;
   offset: number;
 }
@@ -140,6 +141,7 @@ export function getResults(query: ResultQuery): Promise<ResultListResponse> {
     params.set("author", query.author.trim());
   }
   addPublishedFilterParams(params, query);
+  query.excludeRootPostIds?.forEach((postId) => params.append("exclude_root_post_id", postId));
   params.set("include_posts", String(query.includePosts));
   params.set("include_replies", String(query.includeReplies));
   params.set("limit", String(query.limit));

@@ -68,6 +68,13 @@ Reply results should expose root-post metadata so the user can open the original
 thread context. Published-date filters should match the browser-local dates the
 inspector displays.
 
+The user can mark a root post as not interested from the inspector UI. Not
+interested marks are personal browser state saved in localStorage, not SQLite
+content edits. Marking a root post applies to the whole thread for filtering:
+the root post and reply hits from that root post are hidden in the default Focus
+view. The user can switch the interest filter to Show all to review and undo
+hidden threads.
+
 ## Reader
 
 The reader view should preserve body content, source metadata, nested replies,

@@ -79,13 +79,16 @@ otherwise successful refresh look failed.
 
 `GET /api/results` is the primary inspector list endpoint. It supports `search`,
 `author`, `published_from`, `published_to`, `published_timezone`,
-`include_posts`, `include_replies`, `limit`, and `offset`. Reply results include
-root post metadata so the frontend can open the original post and focus the
-matching reply in context. `published_from` and `published_to` are inclusive
-`YYYY-MM-DD` filters over browser-local published dates; the frontend sends the
-browser IANA timezone in `published_timezone`. If omitted, the backend defaults
-to `America/Los_Angeles`. Undated records are excluded while either bound is
-active.
+`include_posts`, `include_replies`, repeated `exclude_root_post_id`, `limit`,
+and `offset`. Reply results include root post metadata so the frontend can open
+the original post and focus the matching reply in context. The root-post ID
+filter exists for the frontend's localStorage-backed not-interested workflow: it
+does not persist anything server-side, but it lets the read-only API paginate
+accurately in Focus mode after the browser applies local thread preferences.
+`published_from` and `published_to` are inclusive `YYYY-MM-DD` filters over
+browser-local published dates; the frontend sends the browser IANA timezone in
+`published_timezone`. If omitted, the backend defaults to `America/Los_Angeles`.
+Undated records are excluded while either bound is active.
 
 Search accepts two-or-more-character terms. Terms of three or more characters
 use the SQLite trigram FTS index; exactly two-character terms use a slower
@@ -106,6 +109,12 @@ interpret post and reply `published_at`/`edited_at` values as
 render them in local time.
 
 Read-only data endpoints open SQLite with `mode=ro` and `PRAGMA query_only = ON`.
+
+Not-interested post marks are browser-local UI preferences saved in
+localStorage. The inspector treats the root post as the unit of interest, so a
+marked root post and reply hits from that root post are hidden in the default
+Focus view. Users can switch the interest filter to Show all to review and undo
+hidden threads.
 
 Browser-facing `db_path` values are display labels, not filesystem access
 contracts. Local repo databases are shown relative to the repository root, such

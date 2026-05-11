@@ -59,6 +59,7 @@ app.add_middleware(
 Connection = Annotated[sqlite3.Connection, Depends(get_connection)]
 PublishedDateQuery = Annotated[date | None, Query()]
 PublishedTimezoneQuery = Annotated[str | None, Query(max_length=100)]
+RootPostIdQuery = Annotated[list[str] | None, Query()]
 
 
 def validate_published_filters(
@@ -183,6 +184,7 @@ async def results(
     published_timezone: PublishedTimezoneQuery = None,
     include_posts: bool = Query(default=True),
     include_replies: bool = Query(default=True),
+    exclude_root_post_id: RootPostIdQuery = None,
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> dict[str, object]:
@@ -200,6 +202,7 @@ async def results(
         published_before=before_text,
         include_posts=include_posts,
         include_replies=include_replies,
+        exclude_root_post_ids=exclude_root_post_id,
         limit=limit,
         offset=offset,
     )

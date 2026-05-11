@@ -74,6 +74,7 @@ def fetch_results(
     published_before: str | None,
     include_posts: bool,
     include_replies: bool,
+    exclude_root_post_ids: list[str] | None,
     limit: int,
     offset: int,
 ) -> dict[str, object]:
@@ -87,6 +88,7 @@ def fetch_results(
             author=author,
             published_from=published_from,
             published_before=published_before,
+            exclude_root_post_ids=exclude_root_post_ids,
         )
         selects.append(
             f"""
@@ -132,6 +134,7 @@ def fetch_results(
             author=author,
             published_from=published_from,
             published_before=published_before,
+            exclude_root_post_ids=exclude_root_post_ids,
         )
         selects.append(
             f"""
