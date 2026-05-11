@@ -87,6 +87,9 @@ The reader view should preserve body content, source metadata, nested replies,
 and source-page links. It should make forum content easier to inspect locally
 without pretending to replace the original forum.
 
+When the inspector page is scrolled down, the UI should expose a Back to Top
+control that returns the whole browser page to the inspector header.
+
 Reply trees should support per-reply and bulk expand/collapse controls. The
 selected collapse state is saved per root post in browser local storage so
 reopening the same post restores the user's previous reply tree state.

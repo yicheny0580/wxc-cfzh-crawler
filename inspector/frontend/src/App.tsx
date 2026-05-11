@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getResults, getSummary } from "./api";
+import { BackToTopButton } from "./BackToTopButton";
 import { FilterPanel } from "./FilterPanel";
 import { HideConfirmationDialog } from "./HideConfirmationDialog";
 import { InspectorHeader } from "./InspectorHeader";
@@ -372,6 +373,7 @@ function App() {
           onConfirm={confirmPendingHide}
         />
       ) : null}
+      <BackToTopButton />
     </div>
   );
 }
