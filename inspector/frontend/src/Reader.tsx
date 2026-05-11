@@ -43,7 +43,7 @@ export function ReaderPane({
   error,
   empty,
   notInterested,
-  onToggleNotInterested
+  onNotInterestedChange
 }: {
   post: PostDetail | null;
   focusRequest: FocusRequest;
@@ -52,7 +52,7 @@ export function ReaderPane({
   error: string | null;
   empty: boolean;
   notInterested: boolean;
-  onToggleNotInterested: (postId: string) => void;
+  onNotInterestedChange: (postId: string, hidden: boolean) => void;
 }) {
   const articleRef = useRef<HTMLElement | null>(null);
   const handledFocusRequestIdRef = useRef(0);
@@ -185,7 +185,7 @@ export function ReaderPane({
             <button
               type="button"
               aria-pressed={notInterested}
-              onClick={() => onToggleNotInterested(post.post_id)}
+              onClick={() => onNotInterestedChange(post.post_id, !notInterested)}
               className={`inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-md border px-3 text-sm font-medium transition focus:outline-none focus:ring-2 focus:ring-emerald-600 ${
                 notInterested
                   ? "border-red-200 bg-red-50 text-red-800 hover:bg-red-100"

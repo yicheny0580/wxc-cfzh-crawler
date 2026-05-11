@@ -14,7 +14,7 @@ export function ResultSidebar({
   notInterestedPostIds,
   onQueryChange,
   onSelect,
-  onToggleNotInterested,
+  onNotInterestedChange,
   onPrevious,
   onNext
 }: {
@@ -28,7 +28,7 @@ export function ResultSidebar({
   notInterestedPostIds: Set<string>;
   onQueryChange: (query: string) => void;
   onSelect: (result: ResultItem) => void;
-  onToggleNotInterested: (postId: string) => void;
+  onNotInterestedChange: (postId: string, hidden: boolean) => void;
   onPrevious: () => void;
   onNext: () => void;
 }) {
@@ -62,7 +62,7 @@ export function ResultSidebar({
         selectedResultKey={selectedResultKey}
         notInterestedPostIds={notInterestedPostIds}
         onSelect={onSelect}
-        onToggleNotInterested={onToggleNotInterested}
+        onNotInterestedChange={onNotInterestedChange}
       />
       <Pagination
         results={results}

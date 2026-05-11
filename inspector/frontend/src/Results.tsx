@@ -12,7 +12,7 @@ export function ResultList({
   refreshing = false,
   selectedResultKey,
   notInterestedPostIds,
-  onToggleNotInterested,
+  onNotInterestedChange,
   onSelect
 }: {
   results: ResultItem[];
@@ -20,7 +20,7 @@ export function ResultList({
   refreshing?: boolean;
   selectedResultKey: string | null;
   notInterestedPostIds: Set<string>;
-  onToggleNotInterested: (postId: string) => void;
+  onNotInterestedChange: (postId: string, hidden: boolean) => void;
   onSelect: (result: ResultItem) => void;
 }) {
   if (loading) {
@@ -91,7 +91,7 @@ export function ResultList({
               type="button"
               aria-label={markedNotInterested ? "Undo hide" : "Hide"}
               aria-pressed={markedNotInterested}
-              onClick={() => onToggleNotInterested(result.root_post_id)}
+              onClick={() => onNotInterestedChange(result.root_post_id, !markedNotInterested)}
               className={`absolute right-2 top-2 z-10 hidden h-7 items-center justify-center rounded-md border px-2 text-xs font-medium shadow-sm transition focus:outline-none focus:ring-2 focus:ring-emerald-600 sm:inline-flex sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 ${
                 markedNotInterested
                   ? "border-red-200 bg-white/95 text-red-700 hover:bg-red-50"

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getPost, getResults, getSummary } from "./api";
 import { FilterPanel } from "./FilterPanel";
+import { HideConfirmationDialog } from "./HideConfirmationDialog";
 import { InspectorHeader } from "./InspectorHeader";
 import { ResizableInspectorLayout } from "./ResizableInspectorLayout";
 import { PAGE_SIZE, ResultSidebar } from "./ResultSidebar";
@@ -55,6 +56,7 @@ function App() {
     useState<InterestFilterPreference>(DEFAULT_INTEREST_FILTER);
   const [notInterestedPostIds, setNotInterestedPostIds] =
     useState<Set<string>>(readNotInterestedPostIds);
+  const [pendingHidePostId, setPendingHidePostId] = useState<string | null>(null);
   const [resultTypeFilter, setResultTypeFilter] = useState<ResultTypeFilterPreference>(
     readResultTypeFilterPreference
   );
@@ -281,17 +283,38 @@ function App() {
     );
   };
 
-  const toggleNotInterestedPost = (postId: string) => {
+  const applyNotInterestedPostState = (postId: string, hidden: boolean) => {
     setNotInterestedPostIds((current) => {
       const next = new Set(current);
-      if (next.has(postId)) {
-        next.delete(postId);
-      } else {
+      if (hidden) {
         next.add(postId);
+      } else {
+        next.delete(postId);
+      }
+      if (next.size === current.size && next.has(postId) === current.has(postId)) {
+        return current;
       }
       writeNotInterestedPostIds(next);
       return next;
     });
+  };
+
+  const requestNotInterestedPostState = (postId: string, hidden: boolean) => {
+    if (hidden && !notInterestedPostIds.has(postId)) {
+      setPendingHidePostId(postId);
+      return;
+    }
+
+    applyNotInterestedPostState(postId, hidden);
+  };
+
+  const confirmPendingHide = () => {
+    if (!pendingHidePostId) {
+      return;
+    }
+
+    applyNotInterestedPostState(pendingHidePostId, true);
+    setPendingHidePostId(null);
   };
 
   const clearFilters = () => {
@@ -368,7 +391,7 @@ function App() {
             notInterestedPostIds={notInterestedPostIds}
             onQueryChange={setQuery}
             onSelect={selectResult}
-            onToggleNotInterested={toggleNotInterestedPost}
+            onNotInterestedChange={requestNotInterestedPostState}
             onPrevious={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
             onNext={() => setOffset(offset + PAGE_SIZE)}
           />
@@ -383,11 +406,17 @@ function App() {
               error={detailError}
               empty={!selectedPostId && !resultsLoading}
               notInterested={selectedPost ? notInterestedPostIds.has(selectedPost.post_id) : false}
-              onToggleNotInterested={toggleNotInterestedPost}
+              onNotInterestedChange={requestNotInterestedPostState}
             />
           </section>
         }
       />
+      {pendingHidePostId ? (
+        <HideConfirmationDialog
+          onCancel={() => setPendingHidePostId(null)}
+          onConfirm={confirmPendingHide}
+        />
+      ) : null}
     </div>
   );
 }
