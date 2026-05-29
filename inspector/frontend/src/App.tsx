@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getAuthors, getHealth, getResults, getSummary } from "./api";
 import { BackToTopButton } from "./BackToTopButton";
@@ -81,6 +81,8 @@ function App() {
     reloadToken,
     refreshingAfterCrawlRef
   );
+  const favoritePostIdListRef = useRef(favoritePostIdList);
+  const notInterestedPostIdListRef = useRef(notInterestedPostIdList);
 
   const { includePosts, includeReplies } = resultTypeFilter;
   const favoriteOnly = favoriteFilter === "favorites";
@@ -88,11 +90,25 @@ function App() {
   const effectiveIncludeReplies = favoriteOnly ? false : includeReplies;
   const publicMode = health?.public_mode ?? false;
   const { publishedFrom, publishedTo } = publishedTimeRange(publishedTimeFilter);
-  const displayResults = results;
-  const hasResultScope =
-    effectiveIncludePosts || effectiveIncludeReplies
-      ? !favoriteOnly || favoritePostIdList.length > 0
-      : false;
+  const displayResults = useMemo(() => {
+    if (!results) {
+      return null;
+    }
+
+    const items = results.items.filter((item) => {
+      if (favoriteOnly) {
+        return favoritePostIds.has(item.root_post_id);
+      }
+
+      return interestFilter !== "focus" || !notInterestedPostIds.has(item.root_post_id);
+    });
+
+    if (items.length === results.items.length) {
+      return results;
+    }
+
+    return { ...results, items };
+  }, [favoriteOnly, favoritePostIds, interestFilter, notInterestedPostIds, results]);
   const canGoBack = offset > 0;
   const canGoForward = results ? offset + results.limit < results.total : false;
   const showResultsLoading = resultsLoading && (!results || !refreshingAfterCrawl);
@@ -152,12 +168,15 @@ function App() {
     effectiveIncludePosts,
     effectiveIncludeReplies,
     favoriteFilter,
-    favoritePostIdList,
     interestFilter,
-    notInterestedPostIdList,
     publishedFrom,
     publishedTo
   ]);
+
+  useEffect(() => {
+    favoritePostIdListRef.current = favoritePostIdList;
+    notInterestedPostIdListRef.current = notInterestedPostIdList;
+  }, [favoritePostIdList, notInterestedPostIdList]);
 
   useEffect(() => {
     writeResultTypeFilterPreference(resultTypeFilter);
@@ -168,6 +187,12 @@ function App() {
     setResultsLoading(true);
     setError(null);
     const preserveCurrentResults = refreshingAfterCrawlRef.current;
+    const latestFavoritePostIdList = favoritePostIdListRef.current;
+    const latestNotInterestedPostIdList = notInterestedPostIdListRef.current;
+    const hasResultScope =
+      effectiveIncludePosts || effectiveIncludeReplies
+        ? !favoriteOnly || latestFavoritePostIdList.length > 0
+        : false;
 
     if (!hasResultScope) {
       setResults({ items: [], total: 0, limit: PAGE_SIZE, offset });
@@ -184,9 +209,9 @@ function App() {
       publishedTo,
       includePosts: effectiveIncludePosts,
       includeReplies: effectiveIncludeReplies,
-      includeRootPostIds: favoriteOnly ? favoritePostIdList : undefined,
+      includeRootPostIds: favoriteOnly ? latestFavoritePostIdList : undefined,
       excludeRootPostIds:
-        !favoriteOnly && interestFilter === "focus" ? notInterestedPostIdList : undefined,
+        !favoriteOnly && interestFilter === "focus" ? latestNotInterestedPostIdList : undefined,
       limit: PAGE_SIZE,
       offset
     })
@@ -218,10 +243,7 @@ function App() {
     effectiveIncludePosts,
     effectiveIncludeReplies,
     favoriteOnly,
-    favoritePostIdList,
-    hasResultScope,
     interestFilter,
-    notInterestedPostIdList,
     offset,
     publishedFrom,
     publishedTo,
@@ -229,11 +251,11 @@ function App() {
   ]);
 
   useEffect(() => {
-    if (!displayResults) {
+    if (!results) {
       return;
     }
 
-    if (displayResults.items.length === 0) {
+    if (results.items.length === 0) {
       setSelectedResultKey(null);
       setSelectedPostId(null);
       clearSelectedPost();
@@ -242,13 +264,13 @@ function App() {
 
     if (
       !selectedResultKey ||
-      !displayResults.items.some((item) => resultKey(item) === selectedResultKey)
+      !results.items.some((item) => resultKey(item) === selectedResultKey)
     ) {
-      const first = displayResults.items[0];
+      const first = results.items[0];
       setSelectedResultKey(resultKey(first));
       setSelectedPostId(first.root_post_id);
     }
-  }, [clearSelectedPost, displayResults, selectedResultKey]);
+  }, [clearSelectedPost, results, selectedResultKey]);
 
   const selectResult = (result: ResultItem) => {
     const replyId = result.record_type === "reply" ? result.reply_id : null;

@@ -116,6 +116,9 @@ localStorage. The inspector treats the root post as the unit of interest, so a
 marked root post and reply hits from that root post are hidden in the default
 Focus view through `/api/results` `exclude_root_post_id` filters. Users can
 switch the interest filter to Show all to review and undo hidden threads.
+When a user hides a currently visible thread from Focus view, the frontend
+removes matching current-page rows locally without resetting pagination,
+scroll, or the selected reader post; Show all toggles the hidden state in place.
 
 Favorite post marks are browser-local UI preferences saved in localStorage.
 Favorites apply only to root post rows, not individual replies. The favorite
@@ -124,6 +127,9 @@ results disabled, so Favorite view totals and rows come from the backend and
 contain only root posts that still match the other active filters. Favoriting a
 post clears a not-interested mark for the same post, and hiding a post clears
 any favorite mark for that post.
+Favorite toggles update the current row and reader state locally. In Favorites
+view, unfavoriting a visible row removes that row from the current page without
+resetting pagination, scroll, or the selected reader post.
 
 Browser-facing `db_path` values are display labels, not filesystem access
 contracts. Local repo databases are shown relative to the repository root, such
