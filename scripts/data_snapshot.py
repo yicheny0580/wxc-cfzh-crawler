@@ -142,7 +142,11 @@ def build_manifest(
     }
 
 
-def write_release_notes(path: Path, manifest: dict[str, Any]) -> None:
+def data_snapshot_doc_url(repo: str) -> str:
+    return f"https://github.com/{repo.strip()}/blob/main/docs/data-snapshots.md"
+
+
+def write_release_notes(path: Path, manifest: dict[str, Any], *, repo: str = DEFAULT_REPO) -> None:
     gzip_asset = manifest["assets"]["database_gzip"]
     path.write_text(
         "\n".join(
@@ -155,6 +159,7 @@ def write_release_notes(path: Path, manifest: dict[str, Any]) -> None:
                 f"- Replies: {manifest['replies']}",
                 f"- Asset: {gzip_asset['name']}",
                 f"- SHA-256: {gzip_asset['sha256']}",
+                f"- How to consume: {data_snapshot_doc_url(repo)}",
                 "",
             ]
         ),
@@ -167,6 +172,7 @@ def create_snapshot(
     out_dir: Path = DEFAULT_OUT,
     *,
     published_at: datetime | None = None,
+    repo: str = DEFAULT_REPO,
 ) -> dict[str, Any]:
     source = db_path.expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +198,7 @@ def create_snapshot(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
-    write_release_notes(notes_path, manifest)
+    write_release_notes(notes_path, manifest, repo=repo)
     return manifest
 
 def asset_sha(manifest: dict[str, Any], key: str) -> str:
@@ -323,7 +329,7 @@ def publish_snapshot(
     out_dir: Path = DEFAULT_OUT,
     repo: str = DEFAULT_REPO,
 ) -> dict[str, Any]:
-    manifest = create_snapshot(db_path=db_path, out_dir=out_dir)
+    manifest = create_snapshot(db_path=db_path, out_dir=out_dir, repo=repo)
     gh = shutil.which("gh")
     if gh is None:
         raise DataSnapshotError("GitHub CLI `gh` is required for data-publish.")

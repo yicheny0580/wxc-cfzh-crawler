@@ -66,9 +66,23 @@ def test_create_snapshot_writes_metadata_and_assets(tmp_path: Path) -> None:
     assert (out_dir / "crawler.sqlite3").is_file()
     assert (out_dir / "crawler.sqlite3.gz").is_file()
     assert json.loads((out_dir / "crawler-snapshot.json").read_text()) == manifest
-    assert "Latest crawl at: 2026-05-09T15:30:00Z" in (
-        out_dir / "crawler-snapshot-release-notes.md"
-    ).read_text()
+    release_notes = (out_dir / "crawler-snapshot-release-notes.md").read_text()
+    assert "Latest crawl at: 2026-05-09T15:30:00Z" in release_notes
+    assert (
+        "How to consume: "
+        "https://github.com/yicheny0580/wxc-cfzh-crawler/blob/main/docs/data-snapshots.md"
+    ) in release_notes
+
+
+def test_create_snapshot_release_notes_use_requested_repo(tmp_path: Path) -> None:
+    db_path = tmp_path / "crawler.sqlite3"
+    out_dir = tmp_path / "publish"
+    write_crawler_db(db_path)
+
+    create_snapshot(db_path=db_path, out_dir=out_dir, repo="example/fork")
+
+    release_notes = (out_dir / "crawler-snapshot-release-notes.md").read_text()
+    assert "https://github.com/example/fork/blob/main/docs/data-snapshots.md" in release_notes
 
 
 def test_create_snapshot_requires_crawled_records(tmp_path: Path) -> None:
