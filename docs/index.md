@@ -10,6 +10,7 @@ they point to the right source, not a copy of that source.
 - [../justfile](../justfile): canonical root command harness.
 - [architecture.md](architecture.md): repo structure, workspace model, and code ownership boundaries.
 - [operations.md](operations.md): local commands for crawl, export, inspect, and verification.
+- [data-snapshots.md](data-snapshots.md): consuming published SQLite release artifacts.
 - [deployment.md](deployment.md): Docker, manual GitHub Actions deployment,
   VPS operations, scheduler management, and cost guardrails.
 - [quality.md](quality.md): tests, linting, docs checks, and quality expectations.

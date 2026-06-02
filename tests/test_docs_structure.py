@@ -10,6 +10,7 @@ DOCS = [
     ROOT / "README.md",
     ROOT / "docs" / "index.md",
     ROOT / "docs" / "architecture.md",
+    ROOT / "docs" / "data-snapshots.md",
     ROOT / "docs" / "operations.md",
     ROOT / "docs" / "quality.md",
     ROOT / "docs" / "exec-plans" / "index.md",

@@ -41,6 +41,8 @@ just data-download force=true
 Download verifies the release manifest checksum and SQLite integrity before the
 database is installed. `force=true` replaces an existing local database and
 removes stale SQLite sidecar files for that path.
+See [data-snapshots.md](data-snapshots.md) for the release asset contract,
+manual consumption, and checksum verification steps.
 
 Maintainers publish snapshots from a machine that has the local database and
 the GitHub CLI authenticated:
@@ -51,9 +53,7 @@ just data-publish
 ```
 
 Published release assets are `crawler.sqlite3.gz` and
-`crawler-snapshot.json`. Snapshot metadata includes `published_at`,
-`latest_crawl_at`, counts, sizes, checksums, and the release tag. The latest
-crawl timestamp is computed from `crawled_at` across posts and replies.
+`crawler-snapshot.json`.
 
 ## Exec Plans
 
