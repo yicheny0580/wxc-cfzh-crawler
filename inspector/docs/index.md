@@ -120,6 +120,12 @@ When a user hides a currently visible thread from Focus view, the frontend
 removes matching current-page rows locally without resetting pagination,
 scroll, or the selected reader post; Show all toggles the hidden state in place.
 
+Reader body HTML is sanitized in the frontend before rendering. The sanitizer
+keeps supported post content such as links, images, lists, code blocks, and
+tables, but removes copied application chrome that was explicitly hidden in the
+source HTML, including hidden, inert, or aria-hidden fragments and inline
+`display: none`, `visibility: hidden`, or hidden utility class fragments.
+
 Favorite post marks are browser-local UI preferences saved in localStorage.
 Favorites apply only to root post rows, not individual replies. The favorite
 filter sends `/api/results` matching `include_root_post_id` filters with reply
@@ -141,6 +147,9 @@ reader's post-image export workflow. It only returns HTTP(S) images whose URL is
 present in that post's stored body HTML after normal forum-relative URL
 resolution, and it rejects local/private network targets so the route cannot act
 as a general open proxy.
+Image export uses an off-screen fixed-width post card. Export-only table
+styling wraps cells into that static card so readable tables do not capture
+browser scrollbars in the PNG.
 
 In public deployment mode, crawl mutation and WebSocket endpoints are disabled.
 Production crawl refresh is managed by SSH/CLI operations documented in

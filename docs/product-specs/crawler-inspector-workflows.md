@@ -94,6 +94,8 @@ list.
 The reader view should preserve body content, source metadata, nested replies,
 and source-page links. It should make forum content easier to inspect locally
 without pretending to replace the original forum.
+When copied post HTML includes explicitly hidden application chrome, the reader
+should remove that hidden chrome instead of exposing it as post content.
 
 When the inspector page is scrolled down, the UI should expose a Back to Top
 control that returns the whole browser page to the inspector header.
@@ -105,7 +107,8 @@ reopening the same post restores the user's previous reply tree state.
 The reader should let the user export the selected root post as an image for
 sharing or archiving. The exported image includes the root post title, metadata,
 source link with a scannable QR code, and post body, including inline post
-images, but does not include replies.
+images and readable tables, but does not include replies or copied hidden UI
+chrome.
 
 ## Refresh
 

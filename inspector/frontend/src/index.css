@@ -107,10 +107,24 @@ select {
   overflow-x: auto;
 }
 
+.post-export-card .reader-body-html :where(table) {
+  display: table;
+  max-width: 100%;
+  min-width: 0 !important;
+  overflow: visible !important;
+  table-layout: fixed;
+  width: 100% !important;
+}
+
 .reader-body-html :where(th, td) {
   border: 1px solid #d6d3d1;
   padding: 0.35rem 0.5rem;
   text-align: left;
+}
+
+.post-export-card .reader-body-html :where(th, td) {
+  overflow-wrap: anywhere;
+  white-space: normal !important;
 }
 
 .scrollbar-stable {

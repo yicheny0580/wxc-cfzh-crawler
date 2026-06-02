@@ -56,6 +56,7 @@ const DROP_WITH_CONTENT_TAGS = new Set([
   "textarea"
 ]);
 
+const HIDDEN_CLASS_TOKENS = new Set(["hidden", "invisible", "sr-only", "visually-hidden"]);
 const GLOBAL_ATTRIBUTES = new Set(["title"]);
 const LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 const IMAGE_PROTOCOLS = new Set(["http:", "https:"]);
@@ -139,6 +140,63 @@ function cleanDimension(value: string): string | null {
     return trimmed;
   }
   return null;
+}
+
+function cleanInlineStyleVisibilityValue(value: string): string {
+  return value
+    .trim()
+    .replace(/\s*!important\s*$/i, "")
+    .toLowerCase();
+}
+
+function inlineStyleValue(element: Element, propertyName: string): string | null {
+  const style = element.getAttribute("style");
+  if (!style) {
+    return null;
+  }
+
+  for (const declaration of style.split(";")) {
+    const separator = declaration.indexOf(":");
+    if (separator === -1) {
+      continue;
+    }
+    const property = declaration.slice(0, separator).trim().toLowerCase();
+    if (property === propertyName) {
+      return cleanInlineStyleVisibilityValue(declaration.slice(separator + 1));
+    }
+  }
+
+  return null;
+}
+
+function hasHiddenClass(element: Element): boolean {
+  const className = element.getAttribute("class");
+  if (!className) {
+    return false;
+  }
+
+  return className.split(/\s+/).some((token) => HIDDEN_CLASS_TOKENS.has(token));
+}
+
+function isExplicitlyHidden(element: Element): boolean {
+  if (element.hasAttribute("hidden") || element.hasAttribute("inert")) {
+    return true;
+  }
+
+  if (element.getAttribute("aria-hidden")?.trim().toLowerCase() === "true") {
+    return true;
+  }
+
+  if (hasHiddenClass(element)) {
+    return true;
+  }
+
+  if (inlineStyleValue(element, "display") === "none") {
+    return true;
+  }
+
+  const visibility = inlineStyleValue(element, "visibility");
+  return visibility === "hidden" || visibility === "collapse";
 }
 
 function cleanStyleValue(value: string): string | null {
@@ -297,7 +355,7 @@ function sanitizeNode(node: ChildNode) {
   const element = node as Element;
   const tagName = element.tagName.toLowerCase();
 
-  if (DROP_WITH_CONTENT_TAGS.has(tagName)) {
+  if (isExplicitlyHidden(element) || DROP_WITH_CONTENT_TAGS.has(tagName)) {
     element.remove();
     return;
   }
